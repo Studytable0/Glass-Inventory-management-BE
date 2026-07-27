@@ -1,9 +1,14 @@
 import app from "./app.js";
+import dotenv from "dotenv";
 
-app.listen(5000, ()=> {
-    console.log("Server is up and running on port 5000")
+dotenv.config();
+const PORT = process.env.PORT || 8000;
+
+app.listen(PORT, ()=> {
+    console.log(`Server running on http://localhost:${PORT}`);
 })
 
 app.get("/", (req, res)=> {
     res.send("Backend is ready")
 })
+

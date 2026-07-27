@@ -1,9 +1,27 @@
+import dotenv from "dotenv";
 import app from "./app.js";
+import pool from "./config/db.js";
 
-app.listen(5000, ()=> {
-    console.log("Server is up and running on port 5000")
-})
+dotenv.config();
 
-app.get("/", (req, res)=> {
-    res.send("Backend is ready")
-})
+const PORT = process.env.PORT || 5000;
+
+const startServer = async () => {
+    try {
+        // Test database connection
+        await pool.query("SELECT NOW()");
+        console.log("✅ PostgreSQL Connected Successfully");
+
+        // Start Express Server
+        app.listen(PORT, () => {
+            console.log(`🚀 Server is running on http://localhost:${PORT}`);
+        });
+
+    } catch (error) {
+        console.error("❌ Failed to connect to PostgreSQL");
+        console.error(error.message);
+        process.exit(1);
+    }
+};
+
+startServer();

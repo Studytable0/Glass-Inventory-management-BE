@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import authRouter from "./routes/auth.routes.js"
+import { authenticate } from "./middleware/auth.middleware.js";
 
 const app = express();
 
@@ -10,11 +12,24 @@ app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 
+// Routes
+app.use("/api/auth", authRouter);
+
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
         message: "Glass Inventory Backend Running 🚀",
     });
 });
+
+app.get("/api/profile", authenticate, (req, res)=> {
+    return res.status(200).json({
+        success: true,
+        user: req.user
+    });
+})
+
+
+
 
 export default app;

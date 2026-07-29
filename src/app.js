@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import authRouter from "./routes/auth.routes.js"
+import storeRouter from "./routes/store.routes.js";
 import { authenticate } from "./middleware/auth.middleware.js";
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/auth", authRouter);
+app.use("/api/stores", storeRouter);
 
 app.get("/", (req, res) => {
     res.status(200).json({

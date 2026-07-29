@@ -4,6 +4,8 @@ export const createStore = async (req, res) => {
     try {
         // 1. Verify Master Admin Role (using the payload from req.user set by authenticate middleware)
         const userRole = req.user?.role;
+
+        // console.log("🕵️ DEBUG - Token Data:", req.user);
         
         if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
             return res.status(403).json({

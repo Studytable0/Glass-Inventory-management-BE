@@ -34,3 +34,22 @@ export const authenticate = (req, res, next) => {
         });
     }
 };
+
+export const requireMasterAdmin = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized access"
+        });
+    }
+
+    const role = req.user.role ? req.user.role.toUpperCase() : "";
+    if (role !== "MASTER_ADMIN" && role !== "MASTERADMIN") {
+        return res.status(403).json({
+            success: false,
+            message: "Access forbidden: Master Admin privileges required"
+        });
+    }
+
+    next();
+};

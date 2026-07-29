@@ -5,7 +5,7 @@ export const findUserByEmail = async (email) => {
         SELECT *
         FROM users
         WHERE email = $1
-          AND status = true
+            AND status = true
         LIMIT 1;
     `;
 
@@ -74,4 +74,4 @@ export const updateUserCredentials = async (id, { email, username, password }) =
 
     return rows[0];
 };
-
+

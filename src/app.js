@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import authRouter from "./routes/auth.routes.js";
+import authRouter from "./routes/auth.routes.js"
 import productRouter from "./routes/product.routes.js";
+import storeRouter from "./routes/store.routes.js";
 import { authenticate } from "./middleware/auth.middleware.js";
 import { initProductTables } from "./repositories/product.repository.js";
 
@@ -20,6 +21,8 @@ initProductTables();
 // Routes
 app.use("/api/auth", authRouter);
 app.use("/api/products", productRouter);
+app.use("/api/stores", storeRouter);
+
 
 app.get("/", (req, res) => {
     res.status(200).json({

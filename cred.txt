@@ -1,0 +1,5 @@
+email: admin@glasserp.com
+Password: admin@123
+Database: glass_inventory
+Host: localhost
+Port: 5432

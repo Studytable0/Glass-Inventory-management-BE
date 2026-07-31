@@ -1,29 +1,7 @@
--- Creating User
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    store_id INT,
-    full_name VARCHAR(100) NOT NULL,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    email VARCHAR(150) UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('MASTER_ADMIN', 'STORE_ADMIN')),
-    status BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- SQL Schema for Glass Inventory Management System
 
--- Creating stores
-CREATE TABLE stores (
-    store_id SERIAL PRIMARY KEY,
-    store_email VARCHAR(255) UNIQUE NOT NULL,
-    store_name VARCHAR(255) NOT NULL,
-    store_location TEXT NOT NULL,
-    status BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Creating glass_categories table
-CREATE TABLE glass_categories (
+-- Glass Categories Table
+CREATE TABLE IF NOT EXISTS glass_categories (
     id SERIAL PRIMARY KEY,
     category_name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
@@ -32,8 +10,8 @@ CREATE TABLE glass_categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Creating products table
-CREATE TABLE products (
+-- Products Table
+CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     product_name VARCHAR(255) NOT NULL,
     category_id INT NOT NULL REFERENCES glass_categories(id) ON DELETE RESTRICT,
@@ -49,8 +27,8 @@ CREATE TABLE products (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Creating inventory table
-CREATE TABLE inventory (
+-- Inventory Table
+CREATE TABLE IF NOT EXISTS inventory (
     id SERIAL PRIMARY KEY,
     product_id INT NOT NULL UNIQUE REFERENCES products(id) ON DELETE CASCADE,
     purchase_rate NUMERIC(12, 2) NOT NULL,
@@ -59,4 +37,14 @@ CREATE TABLE inventory (
     minimum_stock INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Store Products Junction Table
+CREATE TABLE IF NOT EXISTS store_products (
+    id SERIAL PRIMARY KEY,
+    store_id INT NOT NULL,
+    product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    quantity INT DEFAULT 0,
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(store_id, product_id)
 );

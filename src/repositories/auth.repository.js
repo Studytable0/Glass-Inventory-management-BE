@@ -75,3 +75,16 @@ export const updateUserCredentials = async (id, { email, username, password }) =
     return rows[0];
 };
 
+export const createUser = async ({ full_name, username, email, password, role }) => {
+    const query = `
+        INSERT INTO users (full_name, username, email, password, role)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, full_name, username, email, role, status, created_at;
+    `;
+
+    const values = [full_name, username, email, password, role];
+
+    const { rows } = await pool.query(query, values);
+
+    return rows[0];
+};

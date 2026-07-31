@@ -4,8 +4,76 @@ import {
     findUserByEmail,
     findUserByUsername,
     findUserById,
-    updateUserCredentials
+    updateUserCredentials,
+    createUser
 } from "../repositories/auth.repository.js";
+
+export const register = async (req, res) => {
+    try {
+        const { full_name, username, email, password, role } = req.body;
+
+        // Validate required fields
+        if (!full_name || !username || !email || !password || !role) {
+            return res.status(400).json({
+                success: false,
+                message: "full_name, username, email, password, and role are required"
+            });
+        }
+
+        // Validate role value
+        const allowedRoles = ["MASTER_ADMIN", "STORE_ADMIN"];
+        if (!allowedRoles.includes(role.toUpperCase())) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid role. Allowed values: ${allowedRoles.join(", ")}`
+            });
+        }
+
+        // Check if email already exists
+        const existingEmailUser = await findUserByEmail(email);
+        if (existingEmailUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Email is already registered"
+            });
+        }
+
+        // Check if username already exists
+        const existingUsernameUser = await findUserByUsername(username);
+        if (existingUsernameUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Username is already taken"
+            });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create user in database
+        const newUser = await createUser({
+            full_name,
+            username,
+            email,
+            password: hashedPassword,
+            role: role.toUpperCase()
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "User registered successfully",
+            user: newUser
+        });
+
+    } catch (error) {
+        console.error("Register Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
 
 export const login = async (req, res) => {
     try {
@@ -173,5 +241,7 @@ export const updateMasterAdminCredentials = async (req, res) => {
         });
     }
 };
+
+
 
 

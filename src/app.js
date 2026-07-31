@@ -5,8 +5,10 @@ import morgan from "morgan";
 import authRouter from "./routes/auth.routes.js"
 import productRouter from "./routes/product.routes.js";
 import storeRouter from "./routes/store.routes.js";
+import glassCategoryRouter from "./routes/glassCategory.routes.js";
 import { authenticate } from "./middleware/auth.middleware.js";
 import { initProductTables } from "./repositories/product.repository.js";
+import { initGlassCategoryTable } from "./repositories/glassCategory.repository.js";
 
 const app = express();
 
@@ -17,11 +19,14 @@ app.use(express.json());
 
 // Initialize Database Tables
 initProductTables();
+initGlassCategoryTable();
 
 // Routes
 app.use("/api/auth", authRouter);
 app.use("/api/products", productRouter);
 app.use("/api/stores", storeRouter);
+app.use("/api/glass-categories", glassCategoryRouter);
+
 
 
 app.get("/", (req, res) => {

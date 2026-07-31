@@ -6,6 +6,10 @@ import {
     getAllProductsFromDB,
     assignProductToStoreInDB
 } from "../repositories/product.repository.js";
+import {
+    getGlassCategoryByIdFromDB,
+    getGlassCategoryByNameFromDB
+} from "../repositories/glassCategory.repository.js";
 
 const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
     const l = parseFloat(length);
@@ -35,6 +39,7 @@ export const createProduct = async (req, res) => {
     try {
         const {
             product_name,
+            category_id,
             glass_category,
             color,
             thickness,
@@ -50,18 +55,37 @@ export const createProduct = async (req, res) => {
             area
         } = req.body;
 
-        if (!product_name || !glass_category || !color || !thickness || length === undefined || width === undefined || purchase_rate === undefined || selling_rate === undefined) {
+        if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined || purchase_rate === undefined || selling_rate === undefined) {
             return res.status(400).json({
                 success: false,
-                message: "Missing required fields: product_name, glass_category, color, thickness, length, width, purchase_rate, selling_rate are required."
+                message: "Missing required fields: product_name, category_id (or glass_category), color, thickness, length, width, purchase_rate, selling_rate are required."
+            });
+        }
+
+        let resolvedCategoryId = category_id ? parseInt(category_id, 10) : null;
+        let validCategory = null;
+
+        if (resolvedCategoryId) {
+            validCategory = await getGlassCategoryByIdFromDB(resolvedCategoryId);
+        } else if (glass_category) {
+            validCategory = await getGlassCategoryByNameFromDB(glass_category);
+            if (validCategory) {
+                resolvedCategoryId = validCategory.id;
+            }
+        }
+
+        if (!validCategory) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid category. No category found matching '${category_id || glass_category}' in glass_categories table.`
             });
         }
 
         const calculatedArea = area !== undefined ? parseFloat(area) : calculateArea(length, width, dimension_unit, unit);
 
-        const newProduct = await createProductInDB({
+        const productData = {
             product_name,
-            glass_category,
+            category_id: resolvedCategoryId,
             color,
             thickness,
             length: parseFloat(length),
@@ -69,12 +93,17 @@ export const createProduct = async (req, res) => {
             dimension_unit: dimension_unit || "mm",
             area: calculatedArea,
             unit: unit || "Sq.ft",
+            gst: gst !== undefined ? parseFloat(gst) : 0
+        };
+
+        const inventoryData = {
             purchase_rate: parseFloat(purchase_rate),
             selling_rate: parseFloat(selling_rate),
-            gst: gst !== undefined ? parseFloat(gst) : 0,
             available_stock: available_stock !== undefined ? parseInt(available_stock, 10) : 0,
             minimum_stock: minimum_stock !== undefined ? parseInt(minimum_stock, 10) : 0
-        });
+        };
+
+        const newProduct = await createProductInDB(productData, inventoryData);
 
         return res.status(201).json({
             success: true,
@@ -93,7 +122,7 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const updateFields = { ...req.body };
+        const updateBody = { ...req.body };
 
         const existingProduct = await getProductByIdFromDB(id);
         if (!existingProduct) {
@@ -103,17 +132,54 @@ export const updateProduct = async (req, res) => {
             });
         }
 
-        // Recalculate area if length, width, dimension_unit, or unit are updated
-        const newLength = updateFields.length !== undefined ? updateFields.length : existingProduct.length;
-        const newWidth = updateFields.width !== undefined ? updateFields.width : existingProduct.width;
-        const newDimUnit = updateFields.dimension_unit !== undefined ? updateFields.dimension_unit : existingProduct.dimension_unit;
-        const newUnit = updateFields.unit !== undefined ? updateFields.unit : existingProduct.unit;
+        let resolvedCategoryId = updateBody.category_id !== undefined ? parseInt(updateBody.category_id, 10) : existingProduct.category_id;
 
-        if (updateFields.area === undefined && (updateFields.length !== undefined || updateFields.width !== undefined || updateFields.dimension_unit !== undefined || updateFields.unit !== undefined)) {
-            updateFields.area = calculateArea(newLength, newWidth, newDimUnit, newUnit);
+        if (updateBody.category_id !== undefined || updateBody.glass_category !== undefined) {
+            let validCategory = null;
+            if (updateBody.category_id) {
+                validCategory = await getGlassCategoryByIdFromDB(updateBody.category_id);
+            } else if (updateBody.glass_category) {
+                validCategory = await getGlassCategoryByNameFromDB(updateBody.glass_category);
+                if (validCategory) resolvedCategoryId = validCategory.id;
+            }
+
+            if (!validCategory) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid category. No category found matching '${updateBody.category_id || updateBody.glass_category}' in glass_categories table.`
+                });
+            }
         }
 
-        const updatedProduct = await updateProductInDB(id, updateFields);
+        const newLength = updateBody.length !== undefined ? updateBody.length : existingProduct.length;
+        const newWidth = updateBody.width !== undefined ? updateBody.width : existingProduct.width;
+        const newDimUnit = updateBody.dimension_unit !== undefined ? updateBody.dimension_unit : existingProduct.dimension_unit;
+        const newUnit = updateBody.unit !== undefined ? updateBody.unit : existingProduct.unit;
+
+        let calculatedArea = updateBody.area;
+        if (updateBody.area === undefined && (updateBody.length !== undefined || updateBody.width !== undefined || updateBody.dimension_unit !== undefined || updateBody.unit !== undefined)) {
+            calculatedArea = calculateArea(newLength, newWidth, newDimUnit, newUnit);
+        }
+
+        const productData = {};
+        if (updateBody.product_name !== undefined) productData.product_name = updateBody.product_name;
+        if (resolvedCategoryId !== undefined) productData.category_id = resolvedCategoryId;
+        if (updateBody.color !== undefined) productData.color = updateBody.color;
+        if (updateBody.thickness !== undefined) productData.thickness = updateBody.thickness;
+        if (updateBody.length !== undefined) productData.length = parseFloat(updateBody.length);
+        if (updateBody.width !== undefined) productData.width = parseFloat(updateBody.width);
+        if (updateBody.dimension_unit !== undefined) productData.dimension_unit = updateBody.dimension_unit;
+        if (calculatedArea !== undefined) productData.area = calculatedArea;
+        if (updateBody.unit !== undefined) productData.unit = updateBody.unit;
+        if (updateBody.gst !== undefined) productData.gst = parseFloat(updateBody.gst);
+
+        const inventoryData = {};
+        if (updateBody.purchase_rate !== undefined) inventoryData.purchase_rate = parseFloat(updateBody.purchase_rate);
+        if (updateBody.selling_rate !== undefined) inventoryData.selling_rate = parseFloat(updateBody.selling_rate);
+        if (updateBody.available_stock !== undefined) inventoryData.available_stock = parseInt(updateBody.available_stock, 10);
+        if (updateBody.minimum_stock !== undefined) inventoryData.minimum_stock = parseInt(updateBody.minimum_stock, 10);
+
+        const updatedProduct = await updateProductInDB(id, productData, inventoryData);
 
         return res.status(200).json({
             success: true,

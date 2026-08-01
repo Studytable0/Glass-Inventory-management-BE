@@ -49,7 +49,6 @@ export const createProduct = async (req, res) => {
             unit,
             purchase_rate,
             selling_rate,
-            gst,
             available_stock,
             minimum_stock,
             area
@@ -92,8 +91,7 @@ export const createProduct = async (req, res) => {
             width: parseFloat(width),
             dimension_unit: dimension_unit || "mm",
             area: calculatedArea,
-            unit: unit || "Sq.ft",
-            gst: gst !== undefined ? parseFloat(gst) : 0
+            unit: unit || "Sq.ft"
         };
 
         const inventoryData = {
@@ -171,7 +169,6 @@ export const updateProduct = async (req, res) => {
         if (updateBody.dimension_unit !== undefined) productData.dimension_unit = updateBody.dimension_unit;
         if (calculatedArea !== undefined) productData.area = calculatedArea;
         if (updateBody.unit !== undefined) productData.unit = updateBody.unit;
-        if (updateBody.gst !== undefined) productData.gst = parseFloat(updateBody.gst);
 
         const inventoryData = {};
         if (updateBody.purchase_rate !== undefined) inventoryData.purchase_rate = parseFloat(updateBody.purchase_rate);

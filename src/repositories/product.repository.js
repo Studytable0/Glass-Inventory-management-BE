@@ -13,7 +13,6 @@ export const initProductTables = async () => {
             dimension_unit VARCHAR(20) DEFAULT 'mm',
             area NUMERIC(10, 4) NOT NULL,
             unit VARCHAR(20) DEFAULT 'Sq.ft',
-            gst NUMERIC(5, 2) DEFAULT 0.00,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
@@ -86,10 +85,9 @@ export const createProductInDB = async (productData, inventoryData) => {
                 width,
                 dimension_unit,
                 area,
-                unit,
-                gst
+                unit
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *;
         `;
 
@@ -102,8 +100,7 @@ export const createProductInDB = async (productData, inventoryData) => {
             productData.width,
             productData.dimension_unit || 'mm',
             productData.area,
-            productData.unit || 'Sq.ft',
-            productData.gst || 0
+            productData.unit || 'Sq.ft'
         ];
 
         const { rows: productRows } = await client.query(insertProductQuery, productValues);
@@ -164,8 +161,7 @@ export const updateProductInDB = async (id, productData, inventoryData) => {
             "width",
             "dimension_unit",
             "area",
-            "unit",
-            "gst"
+            "unit"
         ];
 
         const productUpdates = [];

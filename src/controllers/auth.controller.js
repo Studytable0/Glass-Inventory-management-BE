@@ -5,7 +5,8 @@ import {
     findUserByUsername,
     findUserById,
     updateUserCredentials,
-    createUser
+    createUser,
+    createStoreAdminRecord,
 } from "../repositories/auth.repository.js";
 
 export const register = async (req, res) => {
@@ -241,13 +242,6 @@ export const updateMasterAdminCredentials = async (req, res) => {
         });
     }
 };
-
-// import bcrypt from "bcrypt";
-import { 
-    findUserByEmail, 
-    findUserByUsername, 
-    createStoreAdminRecord 
-} from "../repositories/auth.repository.js"; // Adjust path if necessary
 
 export const createStoreAdmin = async (req, res) => {
     try {

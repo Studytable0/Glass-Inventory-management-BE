@@ -88,3 +88,17 @@ export const createUser = async ({ full_name, username, email, password, role })
 
     return rows[0];
 };
+
+// Insert a new store admin into the users table
+export const createStoreAdminRecord = async ({ store_id, full_name, username, email, password }) => {
+    const query = `
+        INSERT INTO users (store_id, full_name, username, email, password, role)
+        VALUES ($1, $2, $3, $4, $5, 'STORE_ADMIN')
+        RETURNING id, store_id, full_name, username, email, role, status, created_at;
+    `;
+    
+    const values = [store_id, full_name, username, email, password];
+    const { rows } = await pool.query(query, values);
+    
+    return rows[0];
+};

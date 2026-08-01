@@ -242,6 +242,84 @@ export const updateMasterAdminCredentials = async (req, res) => {
     }
 };
 
+// import bcrypt from "bcrypt";
+import { 
+    findUserByEmail, 
+    findUserByUsername, 
+    createStoreAdminRecord 
+} from "../repositories/auth.repository.js"; // Adjust path if necessary
+
+export const createStoreAdmin = async (req, res) => {
+    try {
+        // 1. Verify Master Admin Role
+        const userRole = req.user?.role;
+        
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({
+                success: false,
+                message: "Access forbidden: Only Master Admin can create store admins"
+            });
+        }
+
+        // 2. Extract Input Data
+        const { store_id, full_name, username, email, password } = req.body;
+
+        // 3. Validate Required Fields
+        if (!store_id || !full_name || !username || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "store_id, full_name, username, email, and password are required fields"
+            });
+        }
+
+        // 4. Check for Duplicate Email
+        const existingEmail = await findUserByEmail(email);
+        if (existingEmail) {
+            return res.status(409).json({
+                success: false,
+                message: "A user with this email already exists"
+            });
+        }
+
+        // 5. Check for Duplicate Username
+        const existingUsername = await findUserByUsername(username);
+        if (existingUsername) {
+            return res.status(409).json({
+                success: false,
+                message: "This username is already taken"
+            });
+        }
+
+        // 6. Hash the Password securely
+        const saltRounds = 12;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // 7. Save Store Admin to Database
+        const newStoreAdmin = await createStoreAdminRecord({
+            store_id,
+            full_name,
+            username,
+            email,
+            password: hashedPassword
+        });
+
+        // 8. Send Success Response
+        return res.status(201).json({
+            success: true,
+            message: "Store Admin created successfully",
+            user: newStoreAdmin
+        });
+
+    } catch (error) {
+        console.error("Create Store Admin Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
 
 
 

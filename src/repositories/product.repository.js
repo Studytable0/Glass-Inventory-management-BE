@@ -312,3 +312,27 @@ export const assignProductToStoreInDB = async ({ store_id, product_id, quantity 
     const { rows } = await pool.query(query, [store_id, product_id, quantity || 0]);
     return rows[0];
 };
+
+export const getAllProductsByStoreIdFromDB = async (store_id) => {
+    const query = `
+        SELECT
+            p.*,
+            gc.category_name,
+            gc.description AS category_description,
+            i.purchase_rate,
+            i.selling_rate,
+            i.available_stock,
+            i.minimum_stock,
+            sp.quantity AS store_quantity,
+            sp.assigned_at
+        FROM store_products sp
+        INNER JOIN products p ON sp.product_id = p.id
+        LEFT JOIN glass_categories gc ON p.category_id = gc.id
+        LEFT JOIN inventory i ON p.id = i.product_id
+        WHERE sp.store_id = $1
+        ORDER BY sp.assigned_at DESC;
+    `;
+
+    const { rows } = await pool.query(query, [store_id]);
+    return rows;
+};

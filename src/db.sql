@@ -60,3 +60,34 @@ CREATE TABLE inventory (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 1. Fix Inventory to track stock PER STORE
+-- First, drop the global unique constraint on product_id
+ALTER TABLE inventory DROP CONSTRAINT IF EXISTS inventory_product_id_key;
+-- Add store_id to inventory
+ALTER TABLE inventory ADD COLUMN store_id INT REFERENCES stores(store_id) ON DELETE CASCADE;
+-- Make the combination of store + product unique (so Store 1 and Store 2 can have different stock of the same product)
+ALTER TABLE inventory ADD CONSTRAINT unique_store_product UNIQUE (store_id, product_id);
+
+-- 2. Create Invoices (Bills) Table
+CREATE TABLE invoices (
+    invoice_id SERIAL PRIMARY KEY,
+    store_id INT NOT NULL REFERENCES stores(store_id) ON DELETE RESTRICT,
+    billed_by INT NOT NULL REFERENCES users(id) ON DELETE RESTRICT, -- The store admin who made the bill
+    customer_name VARCHAR(150),
+    customer_phone VARCHAR(15),
+    sub_total NUMERIC(12, 2) NOT NULL,
+    total_gst NUMERIC(12, 2) DEFAULT 0.00,
+    grand_total NUMERIC(12, 2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Create Invoice Items Table (What exactly was sold in the bill)
+CREATE TABLE invoice_items (
+    item_id SERIAL PRIMARY KEY,
+    invoice_id INT NOT NULL REFERENCES invoices(invoice_id) ON DELETE CASCADE,
+    product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    quantity INT NOT NULL,
+    unit_price NUMERIC(12, 2) NOT NULL, -- Selling rate at the time of sale
+    total_price NUMERIC(12, 2) NOT NULL
+);

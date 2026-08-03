@@ -4,8 +4,77 @@ import {
     findUserByEmail,
     findUserByUsername,
     findUserById,
-    updateUserCredentials
+    updateUserCredentials,
+    createUser,
+    createStoreAdminRecord,
 } from "../repositories/auth.repository.js";
+
+export const register = async (req, res) => {
+    try {
+        const { full_name, username, email, password, role } = req.body;
+
+        // Validate required fields
+        if (!full_name || !username || !email || !password || !role) {
+            return res.status(400).json({
+                success: false,
+                message: "full_name, username, email, password, and role are required"
+            });
+        }
+
+        // Validate role value
+        const allowedRoles = ["MASTER_ADMIN", "STORE_ADMIN"];
+        if (!allowedRoles.includes(role.toUpperCase())) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid role. Allowed values: ${allowedRoles.join(", ")}`
+            });
+        }
+
+        // Check if email already exists
+        const existingEmailUser = await findUserByEmail(email);
+        if (existingEmailUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Email is already registered"
+            });
+        }
+
+        // Check if username already exists
+        const existingUsernameUser = await findUserByUsername(username);
+        if (existingUsernameUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Username is already taken"
+            });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create user in database
+        const newUser = await createUser({
+            full_name,
+            username,
+            email,
+            password: hashedPassword,
+            role: role.toUpperCase()
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "User registered successfully",
+            user: newUser
+        });
+
+    } catch (error) {
+        console.error("Register Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
 
 export const login = async (req, res) => {
     try {
@@ -173,5 +242,113 @@ export const updateMasterAdminCredentials = async (req, res) => {
         });
     }
 };
+
+export const createStoreAdmin = async (req, res) => {
+    try {
+        // 1. Verify Master Admin Role
+        const userRole = req.user?.role;
+        
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({
+                success: false,
+                message: "Access forbidden: Only Master Admin can create store admins"
+            });
+        }
+
+        // 2. Extract Input Data
+        const { store_id, full_name, username, email, password } = req.body;
+
+        // 3. Validate Required Fields
+        if (!store_id || !full_name || !username || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "store_id, full_name, username, email, and password are required fields"
+            });
+        }
+
+        // 4. Check for Duplicate Email
+        const existingEmail = await findUserByEmail(email);
+        if (existingEmail) {
+            return res.status(409).json({
+                success: false,
+                message: "A user with this email already exists"
+            });
+        }
+
+        // 5. Check for Duplicate Username
+        const existingUsername = await findUserByUsername(username);
+        if (existingUsername) {
+            return res.status(409).json({
+                success: false,
+                message: "This username is already taken"
+            });
+        }
+
+        // 6. Hash the Password securely
+        const saltRounds = 12;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // 7. Save Store Admin to Database
+        const newStoreAdmin = await createStoreAdminRecord({
+            store_id,
+            full_name,
+            username,
+            email,
+            password: hashedPassword
+        });
+
+        // 8. Send Success Response
+        return res.status(201).json({
+            success: true,
+            message: "Store Admin created successfully",
+            user: newStoreAdmin
+        });
+
+    } catch (error) {
+        console.error("Create Store Admin Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
+import { updateAdminStoreId } from "../repositories/auth.repository.js";
+
+export const reassignStoreAdmin = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({ success: false, message: "Only Master Admin can reassign admins" });
+        }
+
+        const { user_id, new_store_id } = req.body;
+
+        if (!user_id || !new_store_id) {
+            return res.status(400).json({ success: false, message: "user_id and new_store_id are required" });
+        }
+
+        const updatedUser = await updateAdminStoreId(user_id, new_store_id);
+        
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "Store Admin not found" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Admin successfully reassigned to new store",
+            user: updatedUser
+        });
+
+    } catch (error) {
+        console.error("Reassign Admin Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+
+
+
 
 

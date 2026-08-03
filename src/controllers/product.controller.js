@@ -52,9 +52,13 @@ export const createProduct = async (req, res) => {
             selling_rate,
             available_stock,
             minimum_stock,
-            area,
-            product_image
+            area
         } = req.body;
+
+        // Build image URL from the uploaded file (multipart)
+        const product_image = req.file
+            ? `${req.protocol}://${req.get("host")}/uploads/products/${req.file.filename}`
+            : null;
 
         if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined || purchase_rate === undefined || selling_rate === undefined) {
             return res.status(400).json({
@@ -172,7 +176,10 @@ export const updateProduct = async (req, res) => {
         if (updateBody.dimension_unit !== undefined) productData.dimension_unit = updateBody.dimension_unit;
         if (calculatedArea !== undefined) productData.area = calculatedArea;
         if (updateBody.unit !== undefined) productData.unit = updateBody.unit;
-        if (updateBody.product_image !== undefined) productData.product_image = updateBody.product_image;
+        // Use uploaded file if provided; otherwise leave image unchanged
+        if (req.file) {
+            productData.product_image = `${req.protocol}://${req.get("host")}/uploads/products/${req.file.filename}`;
+        }
 
         const inventoryData = {};
         if (updateBody.purchase_rate !== undefined) inventoryData.purchase_rate = parseFloat(updateBody.purchase_rate);

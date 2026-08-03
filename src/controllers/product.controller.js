@@ -52,7 +52,8 @@ export const createProduct = async (req, res) => {
             selling_rate,
             available_stock,
             minimum_stock,
-            area
+            area,
+            product_image
         } = req.body;
 
         if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined || purchase_rate === undefined || selling_rate === undefined) {
@@ -92,7 +93,8 @@ export const createProduct = async (req, res) => {
             width: parseFloat(width),
             dimension_unit: dimension_unit || "mm",
             area: calculatedArea,
-            unit: unit || "Sq.ft"
+            unit: unit || "Sq.ft",
+            product_image: product_image || null
         };
 
         const inventoryData = {
@@ -170,6 +172,7 @@ export const updateProduct = async (req, res) => {
         if (updateBody.dimension_unit !== undefined) productData.dimension_unit = updateBody.dimension_unit;
         if (calculatedArea !== undefined) productData.area = calculatedArea;
         if (updateBody.unit !== undefined) productData.unit = updateBody.unit;
+        if (updateBody.product_image !== undefined) productData.product_image = updateBody.product_image;
 
         const inventoryData = {};
         if (updateBody.purchase_rate !== undefined) inventoryData.purchase_rate = parseFloat(updateBody.purchase_rate);

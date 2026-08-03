@@ -5,7 +5,8 @@ import {
     deleteProduct,
     getProductByID,
     getAllProducts,
-    assignProductToStore
+    assignProductToStore,
+    getAllProductsByStoreId
 } from "../controllers/product.controller.js";
 import { authenticate, requireMasterAdmin } from "../middleware/auth.middleware.js";
 
@@ -19,6 +20,7 @@ router.delete("/:id", authenticate, requireMasterAdmin, deleteProduct);
 
 // Read operations (accessible to authenticated users)
 router.get("/", authenticate, getAllProducts);
+router.get("/store/:store_id", authenticate, getAllProductsByStoreId);
 router.get("/:id", authenticate, getProductByID);
 
 export default router;

@@ -4,7 +4,8 @@ import {
     deleteProductInDB,
     getProductByIdFromDB,
     getAllProductsFromDB,
-    assignProductToStoreInDB
+    assignProductToStoreInDB,
+    getAllProductsByStoreIdFromDB
 } from "../repositories/product.repository.js";
 import {
     getGlassCategoryByIdFromDB,
@@ -299,3 +300,32 @@ export const assignProductToStore = async (req, res) => {
         });
     }
 };
+
+export const getAllProductsByStoreId = async (req, res) => {
+    try {
+        const { store_id } = req.params;
+
+        if (!store_id || isNaN(parseInt(store_id, 10))) {
+            return res.status(400).json({
+                success: false,
+                message: "A valid store_id is required"
+            });
+        }
+
+        const products = await getAllProductsByStoreIdFromDB(parseInt(store_id, 10));
+
+        return res.status(200).json({
+            success: true,
+            store_id: parseInt(store_id, 10),
+            count: products.length,
+            products
+        });
+    } catch (error) {
+        console.error("Get All Products By Store ID Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+

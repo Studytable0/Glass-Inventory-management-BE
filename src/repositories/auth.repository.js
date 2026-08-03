@@ -102,3 +102,14 @@ export const createStoreAdminRecord = async ({ store_id, full_name, username, em
     
     return rows[0];
 };
+
+export const updateAdminStoreId = async (userId, newStoreId) => {
+    const query = `
+        UPDATE users 
+        SET store_id = $1 
+        WHERE id = $2 AND role = 'STORE_ADMIN' 
+        RETURNING id, username, store_id;
+    `;
+    const { rows } = await pool.query(query, [newStoreId, userId]);
+    return rows[0];
+};

@@ -8,6 +8,7 @@ import storeRouter from "./routes/store.routes.js";
 import inventoryRouter from "./routes/inventory.routes.js";
 import glassCategoryRouter from "./routes/glassCategory.routes.js";
 import { authenticate } from "./middleware/auth.middleware.js";
+import billingRouter from "./routes/billing.routes.js";
 import { initProductTables } from "./repositories/product.repository.js";
 import { initGlassCategoryTable } from "./repositories/glassCategory.repository.js";
 
@@ -28,6 +29,7 @@ app.use("/api/products", productRouter);
 app.use("/api/stores", storeRouter);
 app.use("/api/glass-categories", glassCategoryRouter);
 app.use("/api/inventory", inventoryRouter);
+app.use("/api/billing", billingRouter);
 
 
 

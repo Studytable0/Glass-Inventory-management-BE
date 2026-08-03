@@ -12,6 +12,7 @@ import {
     getGlassCategoryByNameFromDB
 } from "../repositories/glassCategory.repository.js";
 
+
 const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
     const l = parseFloat(length);
     const w = parseFloat(width);
@@ -38,83 +39,54 @@ const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
 
 export const createProduct = async (req, res) => {
     try {
-        const {
-            product_name,
-            category_id,
-            glass_category,
-            color,
-            thickness,
-            length,
-            width,
-            dimension_unit,
-            unit,
-            purchase_rate,
-            selling_rate,
-            available_stock,
-            minimum_stock,
-            area
-        } = req.body;
+        const { product_name, category_id, glass_category, color, thickness, length, width, dimension_unit, unit, area } = req.body;
 
-        if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined || purchase_rate === undefined || selling_rate === undefined) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields: product_name, category_id (or glass_category), color, thickness, length, width, purchase_rate, selling_rate are required."
-            });
+        if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined) {
+            return res.status(400).json({ success: false, message: "Missing required product fields." });
         }
 
         let resolvedCategoryId = category_id ? parseInt(category_id, 10) : null;
-        let validCategory = null;
-
-        if (resolvedCategoryId) {
-            validCategory = await getGlassCategoryByIdFromDB(resolvedCategoryId);
-        } else if (glass_category) {
-            validCategory = await getGlassCategoryByNameFromDB(glass_category);
-            if (validCategory) {
-                resolvedCategoryId = validCategory.id;
-            }
+        if (!resolvedCategoryId && glass_category) {
+            const validCategory = await getGlassCategoryByNameFromDB(glass_category);
+            if (validCategory) resolvedCategoryId = validCategory.id;
         }
 
-        if (!validCategory) {
-            return res.status(400).json({
-                success: false,
-                message: `Invalid category. No category found matching '${category_id || glass_category}' in glass_categories table.`
-            });
-        }
+        if (!resolvedCategoryId) return res.status(400).json({ success: false, message: "Invalid category." });
 
         const calculatedArea = area !== undefined ? parseFloat(area) : calculateArea(length, width, dimension_unit, unit);
 
-        const productData = {
-            product_name,
-            category_id: resolvedCategoryId,
-            color,
-            thickness,
-            length: parseFloat(length),
-            width: parseFloat(width),
-            dimension_unit: dimension_unit || "mm",
-            area: calculatedArea,
-            unit: unit || "Sq.ft"
-        };
-
-        const inventoryData = {
-            purchase_rate: parseFloat(purchase_rate),
-            selling_rate: parseFloat(selling_rate),
-            available_stock: available_stock !== undefined ? parseInt(available_stock, 10) : 0,
-            minimum_stock: minimum_stock !== undefined ? parseInt(minimum_stock, 10) : 0
-        };
-
-        const newProduct = await createProductInDB(productData, inventoryData);
-
-        return res.status(201).json({
-            success: true,
-            message: "Product created successfully",
-            product: newProduct
+        const newProduct = await createProductInDB({
+            product_name, category_id: resolvedCategoryId, color, thickness,
+            length: parseFloat(length), width: parseFloat(width),
+            dimension_unit: dimension_unit || "mm", area: calculatedArea, unit: unit || "Sq.ft"
         });
+
+        return res.status(201).json({ success: true, message: "Product master created successfully", product: newProduct });
     } catch (error) {
         console.error("Create Product Error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const assignProductToStore = async (req, res) => {
+    try {
+        const { store_id, product_id, purchase_rate, selling_rate, quantity, minimum_stock } = req.body;
+
+        if (!store_id || !product_id || purchase_rate === undefined || selling_rate === undefined) {
+            return res.status(400).json({ success: false, message: "store_id, product_id, purchase_rate, and selling_rate are required" });
+        }
+
+        const assignment = await assignProductToStoreInDB(store_id, product_id, {
+            purchase_rate: parseFloat(purchase_rate),
+            selling_rate: parseFloat(selling_rate),
+            available_stock: quantity !== undefined ? parseInt(quantity, 10) : 0,
+            minimum_stock: minimum_stock !== undefined ? parseInt(minimum_stock, 10) : 0
         });
+
+        return res.status(200).json({ success: true, message: "Stock and pricing updated for store!", inventory: assignment });
+    } catch (error) {
+        console.error("Assign Product To Store Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
 
@@ -262,44 +234,7 @@ export const getAllProducts = async (req, res) => {
     }
 };
 
-export const assignProductToStore = async (req, res) => {
-    try {
-        const { store_id, product_id, quantity } = req.body;
 
-        if (!store_id || !product_id) {
-            return res.status(400).json({
-                success: false,
-                message: "store_id and product_id are required"
-            });
-        }
-
-        const product = await getProductByIdFromDB(product_id);
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: "Product not found"
-            });
-        }
-
-        const assignment = await assignProductToStoreInDB({
-            store_id: parseInt(store_id, 10),
-            product_id: parseInt(product_id, 10),
-            quantity: quantity !== undefined ? parseInt(quantity, 10) : 0
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: "Product assigned to store successfully",
-            assignment
-        });
-    } catch (error) {
-        console.error("Assign Product To Store Error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
-    }
-};
 
 export const getAllProductsByStoreId = async (req, res) => {
     try {

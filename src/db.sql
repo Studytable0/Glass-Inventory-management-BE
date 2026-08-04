@@ -45,6 +45,7 @@ CREATE TABLE products (
     area NUMERIC(10, 4) NOT NULL,
     unit VARCHAR(20) DEFAULT 'Sq.ft',
     gst NUMERIC(5, 2) DEFAULT 0.00,
+    product_image TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -91,3 +92,6 @@ CREATE TABLE invoice_items (
     unit_price NUMERIC(12, 2) NOT NULL, -- Selling rate at the time of sale
     total_price NUMERIC(12, 2) NOT NULL
 );
+
+-- 4. Add product_image to products table if not exists (Utility query for existing setups)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS product_image TEXT;

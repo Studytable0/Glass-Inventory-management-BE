@@ -46,14 +46,15 @@ export const initProductTables = async () => {
 
 export const createProductInDB = async (productData) => {
     const query = `
-        INSERT INTO products (product_name, category_id, color, thickness, length, width, dimension_unit, area, unit)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO products (product_name, category_id, color, thickness, length, width, dimension_unit, area, unit, product_image)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *;
     `;
     const values = [
         productData.product_name, productData.category_id, productData.color, 
         productData.thickness, productData.length, productData.width, 
-        productData.dimension_unit || 'mm', productData.area, productData.unit || 'Sq.ft'
+        productData.dimension_unit || 'mm', productData.area, productData.unit || 'Sq.ft',
+        productData.product_image ?? null
     ];
     const { rows } = await pool.query(query, values);
     return rows[0];
@@ -125,7 +126,7 @@ export const getAllProductsFromDB = async () => {
 export const updateProductInDB = async (id, productData) => {
     const productFields = [
         "product_name", "category_id", "color", "thickness", 
-        "length", "width", "dimension_unit", "area", "unit"
+        "length", "width", "dimension_unit", "area", "unit", "product_image"
     ];
 
     const productUpdates = [];

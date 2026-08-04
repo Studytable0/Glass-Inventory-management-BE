@@ -37,9 +37,21 @@ const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
     }
 };
 
+const resolveProductImageValue = (req, incomingValue) => {
+    if (req.file) {
+        return `${req.protocol}://${req.get("host")}/uploads/products/${req.file.filename}`;
+    }
+
+    if (incomingValue !== undefined) {
+        return incomingValue === "" ? null : incomingValue;
+    }
+
+    return undefined;
+};
+
 export const createProduct = async (req, res) => {
     try {
-        const { product_name, category_id, glass_category, color, thickness, length, width, dimension_unit, unit, area } = req.body;
+        const { product_name, category_id, glass_category, color, thickness, length, width, dimension_unit, unit, area, product_image } = req.body;
 
         if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined) {
             return res.status(400).json({ success: false, message: "Missing required product fields." });
@@ -54,11 +66,13 @@ export const createProduct = async (req, res) => {
         if (!resolvedCategoryId) return res.status(400).json({ success: false, message: "Invalid category." });
 
         const calculatedArea = area !== undefined ? parseFloat(area) : calculateArea(length, width, dimension_unit, unit);
+        const productImage = resolveProductImageValue(req, product_image);
 
         const newProduct = await createProductInDB({
             product_name, category_id: resolvedCategoryId, color, thickness,
             length: parseFloat(length), width: parseFloat(width),
-            dimension_unit: dimension_unit || "mm", area: calculatedArea, unit: unit || "Sq.ft"
+            dimension_unit: dimension_unit || "mm", area: calculatedArea, unit: unit || "Sq.ft",
+            product_image: productImage
         });
 
         return res.status(201).json({ success: true, message: "Product master created successfully", product: newProduct });
@@ -142,9 +156,10 @@ export const updateProduct = async (req, res) => {
         if (updateBody.dimension_unit !== undefined) productData.dimension_unit = updateBody.dimension_unit;
         if (calculatedArea !== undefined) productData.area = calculatedArea;
         if (updateBody.unit !== undefined) productData.unit = updateBody.unit;
-        // Use uploaded file if provided; otherwise leave image unchanged
-        if (req.file) {
-            productData.product_image = `${req.protocol}://${req.get("host")}/uploads/products/${req.file.filename}`;
+
+        const productImageValue = resolveProductImageValue(req, updateBody.product_image);
+        if (productImageValue !== undefined) {
+            productData.product_image = productImageValue;
         }
 
         const inventoryData = {};

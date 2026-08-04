@@ -314,6 +314,39 @@ export const createStoreAdmin = async (req, res) => {
     }
 };
 
+import { updateAdminStoreId } from "../repositories/auth.repository.js";
+
+export const reassignStoreAdmin = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({ success: false, message: "Only Master Admin can reassign admins" });
+        }
+
+        const { user_id, new_store_id } = req.body;
+
+        if (!user_id || !new_store_id) {
+            return res.status(400).json({ success: false, message: "user_id and new_store_id are required" });
+        }
+
+        const updatedUser = await updateAdminStoreId(user_id, new_store_id);
+        
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "Store Admin not found" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Admin successfully reassigned to new store",
+            user: updatedUser
+        });
+
+    } catch (error) {
+        console.error("Reassign Admin Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
 
 
 

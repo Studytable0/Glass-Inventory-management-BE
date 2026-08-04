@@ -13,7 +13,6 @@ export const getAvailableInventoryByStore = async (store_id) => {
             p.dimension_unit,
             p.area,
             p.unit,
-            p.gst,
             i.selling_rate,
             i.available_stock
         FROM inventory i

@@ -1,8 +1,16 @@
 import bcrypt from "bcrypt";
-import { findStoreByEmail, createStoreWithAdminTx } from "../repositories/store.repository.js";
+import { 
+    findStoreByEmail, 
+    createStoreWithAdminTx,
+    getAllStoresFromDB,
+    getStoreByIdFromDB,
+    updateStoreInDB,
+    deleteStoreInDB
+} from "../repositories/store.repository.js";
 import { findUserByEmail, findUserByUsername } from "../repositories/auth.repository.js";
 
 export const createStore = async (req, res) => {
+
     try {
         const userRole = req.user?.role;
         
@@ -43,6 +51,73 @@ export const createStore = async (req, res) => {
 
     } catch (error) {
         console.error("Create Store Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+}
+
+export const getAllStores = async (req, res) => {
+    try {
+        const stores = await getAllStoresFromDB();
+        return res.status(200).json({ success: true, count: stores.length, stores });
+    } catch (error) {
+        console.error("Get All Stores Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const getStoreById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const store = await getStoreByIdFromDB(id);
+        
+        if (!store) {
+            return res.status(404).json({ success: false, message: "Store not found" });
+        }
+        
+        return res.status(200).json({ success: true, store });
+    } catch (error) {
+        console.error("Get Store By ID Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const updateStore = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { store_name, store_location, status } = req.body;
+        
+        const existingStore = await getStoreByIdFromDB(id);
+        if (!existingStore) {
+            return res.status(404).json({ success: false, message: "Store not found" });
+        }
+        
+        const storeData = {};
+        if (store_name !== undefined) storeData.store_name = store_name;
+        if (store_location !== undefined) storeData.store_location = store_location;
+        if (status !== undefined) storeData.status = status;
+        
+        const updatedStore = await updateStoreInDB(id, storeData);
+        
+        return res.status(200).json({ success: true, message: "Store updated successfully", store: updatedStore });
+    } catch (error) {
+        console.error("Update Store Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const deleteStore = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const existingStore = await getStoreByIdFromDB(id);
+        if (!existingStore) {
+            return res.status(404).json({ success: false, message: "Store not found" });
+        }
+        
+        const deletedStore = await deleteStoreInDB(id);
+        return res.status(200).json({ success: true, message: "Store deactivated successfully", store: deletedStore });
+    } catch (error) {
+        console.error("Delete Store Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };

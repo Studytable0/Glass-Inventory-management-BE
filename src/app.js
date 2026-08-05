@@ -10,6 +10,7 @@ import glassCategoryRouter from "./routes/glassCategory.routes.js";
 import { authenticate } from "./middleware/auth.middleware.js";
 import billingRouter from "./routes/billing.routes.js";
 import { initProductTables } from "./repositories/product.repository.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
 import { initGlassCategoryTable } from "./repositories/glassCategory.repository.js";
 
 const app = express();
@@ -30,6 +31,7 @@ app.use("/api/stores", storeRouter);
 app.use("/api/glass-categories", glassCategoryRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/billing", billingRouter);
+app.use("/api/dashboard", dashboardRoutes);
 
 
 

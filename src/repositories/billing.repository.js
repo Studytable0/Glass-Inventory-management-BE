@@ -50,7 +50,6 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
             RETURNING invoice_id, customer_name, grand_total, created_at;
         `;
         
-        // Since there's no GST, sub_total and grand_total are exactly the same
         const invoiceValues = [storeId, userId, customerName, customerPhone, grandTotal, grandTotal];
         const invoiceResult = await client.query(invoiceQuery, invoiceValues);
         const invoice = invoiceResult.rows[0];
@@ -82,4 +81,64 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
     } finally {
         client.release();
     }
+};
+
+export const getInvoicesByStore = async (storeId) => {
+    const query = `
+        SELECT 
+            i.invoice_id, 
+            i.customer_name, 
+            i.customer_phone, 
+            i.sub_total, 
+            i.grand_total, 
+            i.created_at,
+            JSON_AGG(
+                JSON_BUILD_OBJECT(
+                    'product_id', ii.product_id,
+                    'product_name', p.product_name,
+                    'quantity', ii.quantity,
+                    'unit_price', ii.unit_price,
+                    'total_price', ii.total_price
+                )
+            ) AS items
+        FROM invoices i
+        JOIN invoice_items ii ON i.invoice_id = ii.invoice_id
+        JOIN products p ON ii.product_id = p.id
+        WHERE i.store_id = $1
+        GROUP BY i.invoice_id
+        ORDER BY i.created_at DESC;
+    `;
+    
+    const { rows } = await pool.query(query, [storeId]);
+    return rows;
+};
+
+export const getAllInvoicesGlobal = async () => {
+    const query = `
+        SELECT 
+            i.invoice_id, 
+            i.store_id, 
+            i.customer_name, 
+            i.customer_phone, 
+            i.sub_total, 
+            i.grand_total, 
+            i.created_at,
+            JSON_AGG(
+                JSON_BUILD_OBJECT(
+                    'product_id', ii.product_id,
+                    'product_name', p.product_name,
+                    'quantity', ii.quantity,
+                    'unit_price', ii.unit_price,
+                    'total_price', ii.total_price
+                )
+            ) AS items
+        FROM invoices i
+        JOIN invoice_items ii ON i.invoice_id = ii.invoice_id
+        JOIN products p ON ii.product_id = p.id
+        GROUP BY i.invoice_id, i.store_id
+        ORDER BY i.created_at DESC;
+    `;
+    
+    const { rows } = await pool.query(query);
+    return rows;
 };

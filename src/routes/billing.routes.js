@@ -1,10 +1,18 @@
 import express from "express";
-import { createBill } from "../controllers/billing.controller.js";
-import { authenticate } from "../middleware/auth.middleware.js";
+import { 
+    createBill, 
+    getBillingHistory, 
+    getGlobalBillingHistory 
+} from "../controllers/billing.controller.js";
+import { authenticate, requireMasterAdmin } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// Generate a new bill (Checkout)
+// Store Admin routes
 router.post("/create", authenticate, createBill);
+router.get("/history", authenticate, getBillingHistory);
+
+// Master Admin global routes
+router.get("/global-history", authenticate, requireMasterAdmin, getGlobalBillingHistory);
 
 export default router;

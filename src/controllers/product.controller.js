@@ -5,6 +5,7 @@ import {
     getProductByIdFromDB,
     getAllProductsFromDB,
     assignProductToStoreInDB,
+    removeProductFromStoreInDB,
     getAllProductsByStoreIdFromDB
 } from "../repositories/product.repository.js";
 import {
@@ -84,22 +85,49 @@ export const createProduct = async (req, res) => {
 
 export const assignProductToStore = async (req, res) => {
     try {
-        const { store_id, product_id, purchase_rate, selling_rate, quantity, minimum_stock } = req.body;
+        const {
+            store_id,
+            product_id,
+            purchase_rate = 0,
+            selling_rate = 0,
+            quantity = 0,
+            minimum_stock = 0
+        } = req.body;
 
-        if (!store_id || !product_id || purchase_rate === undefined || selling_rate === undefined) {
-            return res.status(400).json({ success: false, message: "store_id, product_id, purchase_rate, and selling_rate are required" });
+        if (!store_id || !product_id) {
+            return res.status(400).json({ success: false, message: "store_id and product_id are required" });
         }
 
         const assignment = await assignProductToStoreInDB(store_id, product_id, {
-            purchase_rate: parseFloat(purchase_rate),
-            selling_rate: parseFloat(selling_rate),
-            available_stock: quantity !== undefined ? parseInt(quantity, 10) : 0,
-            minimum_stock: minimum_stock !== undefined ? parseInt(minimum_stock, 10) : 0
+            purchase_rate: parseFloat(purchase_rate) || 0,
+            selling_rate: parseFloat(selling_rate) || 0,
+            available_stock: parseInt(quantity, 10) || 0,
+            minimum_stock: parseInt(minimum_stock, 10) || 0
         });
 
-        return res.status(200).json({ success: true, message: "Stock and pricing updated for store!", inventory: assignment });
+        return res.status(200).json({ success: true, message: "Product Assigned to Store", inventory: assignment });
     } catch (error) {
         console.error("Assign Product To Store Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const removeProductFromStore = async (req, res) => {
+    try {
+        const { store_id, product_id } = req.body;
+
+        if (!store_id || !product_id) {
+            return res.status(400).json({ success: false, message: "store_id and product_id are required" });
+        }
+
+        const removedRecord = await removeProductFromStoreInDB(store_id, product_id);
+        if (!removedRecord) {
+            return res.status(404).json({ success: false, message: "Product not found in the specified store" });
+        }
+
+        return res.status(200).json({ success: true, message: "Product removed from store", inventory: removedRecord });
+    } catch (error) {
+        console.error("Remove Product From Store Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
@@ -237,11 +265,19 @@ export const getProductByID = async (req, res) => {
 
 export const getAllProducts = async (req, res) => {
     try {
-        const products = await getAllProductsFromDB();
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const { products, totalCount } = await getAllProductsFromDB(limit, offset);
+        const totalPages = Math.ceil(totalCount / limit);
 
         return res.status(200).json({
             success: true,
             count: products.length,
+            totalCount,
+            totalPages,
+            currentPage: page,
             products
         });
     } catch (error) {

@@ -113,3 +113,82 @@ export const updateAdminStoreId = async (userId, newStoreId) => {
     const { rows } = await pool.query(query, [newStoreId, userId]);
     return rows[0];
 };
+
+export const getStoreAdminById = async (id) => {
+    const query = `
+        SELECT id, store_id, full_name, username, email, role, status, created_at, updated_at
+        FROM users
+        WHERE id = $1
+          AND role = 'STORE_ADMIN'
+          AND status = true
+        LIMIT 1;
+    `;
+    const { rows } = await pool.query(query, [id]);
+    return rows[0] || null;
+};
+
+export const updateStoreAdminById = async (id, updateData) => {
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (updateData.full_name !== undefined) {
+        updates.push(`full_name = $${paramIndex++}`);
+        values.push(updateData.full_name);
+    }
+    if (updateData.username !== undefined) {
+        updates.push(`username = $${paramIndex++}`);
+        values.push(updateData.username);
+    }
+    if (updateData.email !== undefined) {
+        updates.push(`email = $${paramIndex++}`);
+        values.push(updateData.email);
+    }
+    if (updateData.password !== undefined) {
+        updates.push(`password = $${paramIndex++}`);
+        values.push(updateData.password);
+    }
+    if (updateData.status !== undefined) {
+        updates.push(`status = $${paramIndex++}`);
+        values.push(updateData.status);
+    }
+
+    if (updates.length === 0) return null;
+
+    values.push(id);
+    const query = `
+        UPDATE users
+        SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $${paramIndex}
+          AND role = 'STORE_ADMIN'
+          AND status = true
+        RETURNING id, store_id, full_name, username, email, role, status, created_at, updated_at;
+    `;
+
+    const { rows } = await pool.query(query, values);
+    return rows[0] || null;
+};
+
+export const getAllStoreAdmins = async (limit = 10, offset = 0) => {
+    const query = `
+        SELECT id, store_id, full_name, username, email, role, status, created_at
+        FROM users
+        WHERE role = 'STORE_ADMIN'
+          AND status = true
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2;
+    `;
+
+    const countQuery = `
+        SELECT COUNT(*) AS total
+        FROM users
+        WHERE role = 'STORE_ADMIN'
+          AND status = true;
+    `;
+
+    const { rows } = await pool.query(query, [limit, offset]);
+    const countResult = await pool.query(countQuery);
+    const totalCount = parseInt(countResult.rows[0].total, 10);
+
+    return { storeAdmins: rows, totalCount };
+};

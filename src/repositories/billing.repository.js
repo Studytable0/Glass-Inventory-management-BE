@@ -11,10 +11,14 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
         // 1. Loop through items to validate stock and calculate totals
         for (const item of items) {
+            // UPDATED: Joined with products table to fetch rich details
             const checkStockQuery = `
-                SELECT available_stock, selling_rate
-                FROM inventory
-                WHERE store_id = $1 AND product_id = $2
+                SELECT 
+                    i.available_stock, i.selling_rate,
+                    p.product_name, p.thickness, p.length, p.width, p.color
+                FROM inventory i
+                JOIN products p ON i.product_id = p.id
+                WHERE i.store_id = $1 AND i.product_id = $2
             `;
             const { rows } = await client.query(checkStockQuery, [storeId, item.product_id]);
             
@@ -35,8 +39,14 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
             grandTotal += itemTotalPrice;
 
+            // UPDATED: Added dimensions and details to the output array
             processedItems.push({
                 productId: item.product_id,
+                productName: stockData.product_name,
+                thickness: stockData.thickness,
+                length: stockData.length,
+                width: stockData.width,
+                color: stockData.color,
                 quantity: item.quantity,
                 unitPrice: unitPrice,
                 totalPrice: itemTotalPrice
@@ -96,6 +106,10 @@ export const getInvoicesByStore = async (storeId) => {
                 JSON_BUILD_OBJECT(
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
+                    'thickness', p.thickness,
+                    'length', p.length,
+                    'width', p.width,
+                    'color', p.color,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
                     'total_price', ii.total_price
@@ -127,6 +141,10 @@ export const getAllInvoicesGlobal = async () => {
                 JSON_BUILD_OBJECT(
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
+                    'thickness', p.thickness,
+                    'length', p.length,
+                    'width', p.width,
+                    'color', p.color,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
                     'total_price', ii.total_price

@@ -11,6 +11,8 @@ import {
     getStoreAdminById as getStoreAdminByIdFromDB,
     updateStoreAdminById,
     updateAdminStoreId,
+    getStoreAdminProfileFromDB,
+    getMasterAdminProfileFromDB,
 } from "../repositories/auth.repository.js";
 
 export const register = async (req, res) => {
@@ -455,11 +457,66 @@ export const reassignStoreAdmin = async (req, res) => {
     }
 };
 
+export const getStoreAdminProfile = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const userRole = req.user?.role;
+        
+        if (!userId || (userRole.toUpperCase() !== "STORE_ADMIN" && userRole.toUpperCase() !== "STOREADMIN")) {
+            return res.status(403).json({
+                success: false,
+                message: "Access forbidden: Only Store Admin can view this profile"
+            });
+        }
 
+        const profile = await getStoreAdminProfileFromDB(userId);
 
+        if (!profile) {
+            return res.status(404).json({
+                success: false,
+                message: "Store admin profile not found"
+            });
+        }
 
+        return res.status(200).json({
+            success: true,
+            profile
+        });
 
+    } catch (error) {
+        console.error("Get Store Admin Profile Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
 
+export const getMasterAdminProfile = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const userRole = req.user?.role;
+        
+        if (!userId || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({
+                success: false,
+                message: "Access forbidden: Only Master Admin can view this profile"
+            });
+        }
 
+        const profile = await getMasterAdminProfileFromDB(userId);
 
+        if (!profile) {
+            return res.status(404).json({
+                success: false,
+                message: "Master admin profile not found"
+            });
+        }
 
+        return res.status(200).json({
+            success: true,
+            profile
+        });
+
+    } catch (error) {
+        console.error("Get Master Admin Profile Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};

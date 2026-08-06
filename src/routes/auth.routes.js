@@ -1,5 +1,5 @@
 import express from "express";
-import { login, updateMasterAdminCredentials, register, createStoreAdmin, getAllStoreAdmins, getStoreAdminById, updateStoreAdmin, reassignStoreAdmin } from "../controllers/auth.controller.js";
+import { login, updateMasterAdminCredentials, register, createStoreAdmin, getAllStoreAdmins, getStoreAdminById, updateStoreAdmin, reassignStoreAdmin, getStoreAdminProfile, getMasterAdminProfile } from "../controllers/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -26,5 +26,11 @@ router.get("/store-admins/:id", authenticate, getStoreAdminById);
 router.put("/store-admins/:id", authenticate, updateStoreAdmin);
 
 router.put("/reassign-store", authenticate, reassignStoreAdmin);
+
+// Store Admin Profile Route
+router.get("/profile/store-admin", authenticate, getStoreAdminProfile);
+
+// Master Admin Profile Route
+router.get("/profile/master-admin", authenticate, getMasterAdminProfile);
 
 export default router;

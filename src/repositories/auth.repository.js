@@ -192,3 +192,45 @@ export const getAllStoreAdmins = async (limit = 10, offset = 0) => {
 
     return { storeAdmins: rows, totalCount };
 };
+
+export const getStoreAdminProfileFromDB = async (userId) => {
+    const query = `
+        SELECT 
+            u.id AS user_id, 
+            u.full_name, 
+            u.username, 
+            u.email, 
+            u.role, 
+            u.status AS user_status, 
+            u.created_at AS user_created_at,
+            s.store_id, 
+            s.store_name, 
+            s.store_email,
+            s.store_location, 
+            s.status AS store_status
+        FROM users u
+        LEFT JOIN stores s ON u.store_id = s.store_id
+        WHERE u.id = $1 AND u.role = 'STORE_ADMIN' AND u.status = true
+        LIMIT 1;
+    `;
+    const { rows } = await pool.query(query, [userId]);
+    return rows[0] || null;
+};
+
+export const getMasterAdminProfileFromDB = async (userId) => {
+    const query = `
+        SELECT 
+            id AS user_id, 
+            full_name, 
+            username, 
+            email, 
+            role, 
+            status AS user_status, 
+            created_at AS user_created_at
+        FROM users
+        WHERE id = $1 AND (role = 'MASTER_ADMIN' OR role = 'MASTERADMIN') AND status = true
+        LIMIT 1;
+    `;
+    const { rows } = await pool.query(query, [userId]);
+    return rows[0] || null;
+};

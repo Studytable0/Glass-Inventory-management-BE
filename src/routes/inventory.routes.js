@@ -1,6 +1,7 @@
 import express from "express";
 import { 
     getAvailableProducts,
+    getAllInventory,
     getMasterInventory, 
     updateMasterInventory, 
     deleteMasterInventory 
@@ -19,8 +20,9 @@ router.get("/available", authenticate, getAvailableProducts);
 // MASTER ADMIN ROUTES
 // ==========================================
 // Master Admin Inventory Management Routes
-router.get("/master", authenticate, requireMasterAdmin, getMasterInventory);
-router.put("/master/:storeId/:productId", authenticate, requireMasterAdmin, updateMasterInventory);
-router.delete("/master/:storeId/:productId", authenticate, requireMasterAdmin, deleteMasterInventory);
+router.get("/all",                              authenticate, requireMasterAdmin, getAllInventory);
+router.get("/master",                           authenticate, requireMasterAdmin, getMasterInventory);
+router.put("/master/:storeId/:productId",       authenticate, requireMasterAdmin, updateMasterInventory);
+router.delete("/master/:storeId/:productId",    authenticate, requireMasterAdmin, deleteMasterInventory);
 
 export default router;

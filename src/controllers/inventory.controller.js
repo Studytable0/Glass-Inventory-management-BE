@@ -1,5 +1,6 @@
 import { 
     getAvailableInventoryByStore,
+    getAllInventoryFromDB,
     getGlobalInventoryFromDB, 
     updateInventoryInDB, 
     deleteInventoryFromDB 
@@ -22,13 +23,21 @@ export const getAvailableProducts = async (req, res) => {
             });
         }
 
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
         // Fetch the products
-        const availableProducts = await getAvailableInventoryByStore(storeId);
+        const { inventory: availableProducts, totalCount } = await getAvailableInventoryByStore(storeId, limit, offset);
+        const totalPages = Math.ceil(totalCount / limit);
 
         // Send success response
         return res.status(200).json({
             success: true,
             count: availableProducts.length,
+            totalCount,
+            totalPages,
+            currentPage: page,
             data: availableProducts
         });
 
@@ -46,11 +55,60 @@ export const getAvailableProducts = async (req, res) => {
 // MASTER ADMIN CONTROLLERS
 // ==========================================
 
+// GET ALL INVENTORY — Full list + summary stats (Master Admin only)
+export const getAllInventory = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const { inventory, summary } = await getAllInventoryFromDB(limit, offset);
+        const totalCount = parseInt(summary.total_inventory_records, 10);
+        const totalPages = Math.ceil(totalCount / limit);
+
+        return res.status(200).json({
+            success: true,
+            summary: {
+                total_inventory_records:  parseInt(summary.total_inventory_records),
+                total_unique_products:    parseInt(summary.total_unique_products),
+                total_stores_with_stock:  parseInt(summary.total_stores_with_stock),
+                total_stock_units:        parseInt(summary.total_stock_units),
+                total_stock_value:        parseFloat(summary.total_stock_value).toFixed(2),
+                total_purchase_value:     parseFloat(summary.total_purchase_value).toFixed(2),
+                in_stock_count:           parseInt(summary.in_stock_count),
+                low_stock_count:          parseInt(summary.low_stock_count),
+                out_of_stock_count:       parseInt(summary.out_of_stock_count),
+            },
+            count: inventory.length,
+            totalCount,
+            totalPages,
+            currentPage: page,
+            data: inventory,
+        });
+    } catch (error) {
+        console.error("Get All Inventory Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
 // READ ALL
 export const getMasterInventory = async (req, res) => {
     try {
-        const inventory = await getGlobalInventoryFromDB();
-        return res.status(200).json({ success: true, count: inventory.length, data: inventory });
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const { inventory, totalCount } = await getGlobalInventoryFromDB(limit, offset);
+        const totalPages = Math.ceil(totalCount / limit);
+        
+        return res.status(200).json({ 
+            success: true, 
+            count: inventory.length, 
+            totalCount,
+            totalPages,
+            currentPage: page,
+            data: inventory 
+        });
     } catch (error) {
         console.error("Get Master Inventory Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });

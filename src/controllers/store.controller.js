@@ -5,7 +5,8 @@ import {
     getAllStoresFromDB,
     getStoreByIdFromDB,
     updateStoreInDB,
-    deleteStoreInDB
+    deleteStoreInDB,
+    updateStoreDiscountInDB
 } from "../repositories/store.repository.js";
 import { findUserByEmail, findUserByUsername } from "../repositories/auth.repository.js";
 
@@ -131,5 +132,23 @@ export const deleteStore = async (req, res) => {
     } catch (error) {
         console.error("Delete Store Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+
+// store.controller.js
+export const updateStoreDiscount = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+        const { default_max_discount } = req.body;
+        
+        if (default_max_discount < 0 || default_max_discount > 100) {
+            return res.status(400).json({ success: false, message: "Discount must be between 0 and 100." });
+        }
+
+        const store = await updateStoreDiscountInDB(storeId, default_max_discount);
+        res.status(200).json({ success: true, message: "Store discount policy updated!", data: store });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

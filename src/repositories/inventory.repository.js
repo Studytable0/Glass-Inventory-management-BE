@@ -193,3 +193,16 @@ export const deleteInventoryFromDB = async (storeId, productId) => {
     const { rows } = await pool.query(query, [storeId, productId]);
     return rows[0];
 };
+
+export const updateStockDiscountOverrideInDB = async (storeId, productId, overrideMaxDiscount) => {
+    const query = `
+        UPDATE inventory 
+        SET override_max_discount = $1, updated_at = CURRENT_TIMESTAMP 
+        WHERE store_id = $2 AND product_id = $3 
+        RETURNING store_id, product_id, override_max_discount;
+    `;
+    // Pass null if you want to remove the override and fallback to store default
+    const limit = overrideMaxDiscount === "" ? null : overrideMaxDiscount;
+    const { rows } = await pool.query(query, [limit, storeId, productId]);
+    return rows[0];
+};

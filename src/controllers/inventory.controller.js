@@ -3,7 +3,8 @@ import {
     getAllInventoryFromDB,
     getGlobalInventoryFromDB, 
     updateInventoryInDB, 
-    deleteInventoryFromDB 
+    deleteInventoryFromDB,
+    updateStockDiscountOverrideInDB
 } from "../repositories/inventory.repository.js";
 
 // ==========================================
@@ -183,5 +184,16 @@ export const deleteMasterInventory = async (req, res) => {
     } catch (error) {
         console.error("Delete Inventory Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+// inventory.controller.js
+export const updateStockDiscount = async (req, res) => {
+    try {
+        const { store_id, product_id, override_max_discount } = req.body;
+        const stock = await updateStockDiscountOverrideInDB(store_id, product_id, override_max_discount);
+        res.status(200).json({ success: true, message: "Stock discount override updated!", data: stock });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

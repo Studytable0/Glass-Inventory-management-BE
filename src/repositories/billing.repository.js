@@ -6,18 +6,21 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
     try {
         await client.query('BEGIN'); // 🔒 Start Transaction
 
-        let grandTotal = 0;
+        let subTotal = 0;   // Total BEFORE discount
+        let grandTotal = 0; // Total AFTER discount
         const processedItems = [];
 
-        // 1. Loop through items to validate stock and calculate totals
+        // 1. Loop through items to validate stock, apply discounts, and calculate totals
         for (const item of items) {
-            // ✅ CORRECTED: Now fetching p.area and p.unit
+            // ✅ UPDATED: Joined stores table to get default_max_discount & fetched override_max_discount
             const checkStockQuery = `
                 SELECT 
-                    i.available_stock, i.selling_rate,
-                    p.product_name, p.thickness, p.length, p.width, p.color, p.area, p.unit
+                    i.available_stock, i.selling_rate, i.override_max_discount,
+                    p.product_name, p.thickness, p.length, p.width, p.color, p.area, p.unit,
+                    s.default_max_discount
                 FROM inventory i
                 JOIN products p ON i.product_id = p.id
+                JOIN stores s ON i.store_id = s.store_id
                 WHERE i.store_id = $1 AND i.product_id = $2
             `;
             const { rows } = await client.query(checkStockQuery, [storeId, item.product_id]);
@@ -33,14 +36,31 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
                 throw new Error(`Insufficient stock for Product ID ${item.product_id}. Only ${stockData.available_stock} left.`);
             }
 
-            // ✅ CORRECTED: Area-based math calculation! (Rate * Area * Quantity)
+            // ✅ DISCOUNT LOGIC: Determine Max Allowed Discount
+            const storeLimit = parseFloat(stockData.default_max_discount || 0);
+            const overrideLimit = stockData.override_max_discount !== null ? parseFloat(stockData.override_max_discount) : null;
+            
+            // Override takes precedence if it exists; otherwise use store default
+            const maxAllowedDiscount = overrideLimit !== null ? overrideLimit : storeLimit;
+            const appliedDiscount = parseFloat(item.discount_applied || 0);
+
+            // ✅ SECURITY CHECK: Block unauthorized discounts
+            if (appliedDiscount > maxAllowedDiscount) {
+                throw new Error(`Discount limit exceeded. Maximum allowed discount for ${stockData.product_name} is ${maxAllowedDiscount}%.`);
+            }
+
+            // ✅ MATH CALCULATION: Area * Rate * Qty
             const unitPricePerSqFt = parseFloat(stockData.selling_rate);
             const pieceArea = parseFloat(stockData.area);
-            const itemTotalPrice = unitPricePerSqFt * pieceArea * item.quantity;
+            
+            const baseTotalPrice = unitPricePerSqFt * pieceArea * item.quantity;
+            const discountAmount = baseTotalPrice * (appliedDiscount / 100);
+            const finalItemPrice = baseTotalPrice - discountAmount;
 
-            grandTotal += itemTotalPrice;
+            subTotal += baseTotalPrice;
+            grandTotal += finalItemPrice;
 
-            // ✅ CORRECTED: Saving area and unit to the receipt output
+            // Added discount_percent to the processed items
             processedItems.push({
                 productId: item.product_id,
                 productName: stockData.product_name,
@@ -52,7 +72,8 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
                 unit: stockData.unit,
                 quantity: item.quantity,
                 unitPrice: unitPricePerSqFt,
-                totalPrice: itemTotalPrice
+                discountPercent: appliedDiscount,
+                totalPrice: finalItemPrice
             });
         }
 
@@ -60,21 +81,22 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
         const invoiceQuery = `
             INSERT INTO invoices (store_id, billed_by, customer_name, customer_phone, sub_total, grand_total)
             VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING invoice_id, customer_name, grand_total, created_at;
+            RETURNING invoice_id, customer_name, sub_total, grand_total, created_at;
         `;
         
-        const invoiceValues = [storeId, userId, customerName, customerPhone, grandTotal, grandTotal];
+        const invoiceValues = [storeId, userId, customerName, customerPhone, subTotal, grandTotal];
         const invoiceResult = await client.query(invoiceQuery, invoiceValues);
         const invoice = invoiceResult.rows[0];
 
         // 3. Insert invoice items and deduct inventory
         for (const pItem of processedItems) {
+            // ✅ UPDATED: Added discount_percent to the insert query
             const itemQuery = `
-                INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_price, total_price)
-                VALUES ($1, $2, $3, $4, $5)
+                INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_price, discount_percent, total_price)
+                VALUES ($1, $2, $3, $4, $5, $6)
             `;
             await client.query(itemQuery, [
-                invoice.invoice_id, pItem.productId, pItem.quantity, pItem.unitPrice, pItem.totalPrice
+                invoice.invoice_id, pItem.productId, pItem.quantity, pItem.unitPrice, pItem.discountPercent, pItem.totalPrice
             ]);
 
             const updateStockQuery = `
@@ -117,6 +139,7 @@ export const getInvoicesByStore = async (storeId) => {
                     'unit', p.unit,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
+                    'discount_percent', ii.discount_percent,
                     'total_price', ii.total_price
                 )
             ) AS items
@@ -154,6 +177,7 @@ export const getAllInvoicesGlobal = async () => {
                     'unit', p.unit,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
+                    'discount_percent', ii.discount_percent,
                     'total_price', ii.total_price
                 )
             ) AS items

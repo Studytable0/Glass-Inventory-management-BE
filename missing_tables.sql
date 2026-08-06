@@ -1,0 +1,21 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    store_id INT,
+    full_name VARCHAR(100) NOT NULL,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(150) UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('MASTER_ADMIN', 'STORE_ADMIN')),
+    status BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE stores (
+    store_id SERIAL PRIMARY KEY,
+    store_email VARCHAR(255) UNIQUE NOT NULL,
+    store_name VARCHAR(255) NOT NULL,
+    store_location TEXT NOT NULL,
+    status BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

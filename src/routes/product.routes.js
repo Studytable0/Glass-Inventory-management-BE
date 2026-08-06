@@ -6,6 +6,7 @@ import {
     getProductByID,
     getAllProducts,
     assignProductToStore,
+    removeProductFromStore,
     getAllProductsByStoreId
 } from "../controllers/product.controller.js";
 import { authenticate, requireMasterAdmin } from "../middleware/auth.middleware.js";
@@ -16,6 +17,7 @@ const router = express.Router();
 // Master Admin operations
 router.post("/", authenticate, requireMasterAdmin, uploadProductImage, createProduct);
 router.post("/assign-store", authenticate, requireMasterAdmin, assignProductToStore);
+router.delete("/remove-store", authenticate, requireMasterAdmin, removeProductFromStore);
 router.put("/:id", authenticate, requireMasterAdmin, uploadProductImage, updateProduct);
 router.delete("/:id", authenticate, requireMasterAdmin, deleteProduct);
 

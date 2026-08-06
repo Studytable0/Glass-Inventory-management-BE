@@ -7,6 +7,10 @@ import {
     updateUserCredentials,
     createUser,
     createStoreAdminRecord,
+    getAllStoreAdmins as getAllStoreAdminsFromDB,
+    getStoreAdminById as getStoreAdminByIdFromDB,
+    updateStoreAdminById,
+    updateAdminStoreId,
 } from "../repositories/auth.repository.js";
 
 export const register = async (req, res) => {
@@ -314,7 +318,111 @@ export const createStoreAdmin = async (req, res) => {
     }
 };
 
-import { updateAdminStoreId } from "../repositories/auth.repository.js";
+export const getAllStoreAdmins = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({ success: false, message: "Access forbidden: Only Master Admin can view store admins" });
+        }
+
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const { storeAdmins, totalCount } = await getAllStoreAdminsFromDB(limit, offset);
+        const totalPages = Math.ceil(totalCount / limit);
+
+        return res.status(200).json({
+            success: true,
+            count: storeAdmins.length,
+            totalCount,
+            totalPages,
+            currentPage: page,
+            storeAdmins
+        });
+    } catch (error) {
+        console.error("Get All Store Admins Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const getStoreAdminById = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({ success: false, message: "Access forbidden: Only Master Admin can view store admin details" });
+        }
+
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, message: "Store admin id is required" });
+        }
+
+        const storeAdmin = await getStoreAdminByIdFromDB(parseInt(id, 10));
+        if (!storeAdmin) {
+            return res.status(404).json({ success: false, message: "Store admin not found" });
+        }
+
+        return res.status(200).json({ success: true, storeAdmin });
+    } catch (error) {
+        console.error("Get Store Admin By Id Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const updateStoreAdmin = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (!userRole || (userRole.toUpperCase() !== "MASTER_ADMIN" && userRole.toUpperCase() !== "MASTERADMIN")) {
+            return res.status(403).json({ success: false, message: "Access forbidden: Only Master Admin can update store admins" });
+        }
+
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, message: "Store admin id is required" });
+        }
+
+        const { full_name, username, email, password, status } = req.body;
+        if (full_name === undefined && username === undefined && email === undefined && password === undefined && status === undefined) {
+            return res.status(400).json({ success: false, message: "At least one field is required to update" });
+        }
+
+        const existingUser = await findUserById(parseInt(id, 10));
+        if (!existingUser || existingUser.role.toUpperCase() !== "STORE_ADMIN") {
+            return res.status(404).json({ success: false, message: "Store admin not found" });
+        }
+
+        if (email) {
+            const existingEmail = await findUserByEmail(email);
+            if (existingEmail && existingEmail.id !== parseInt(id, 10)) {
+                return res.status(409).json({ success: false, message: "Email is already in use by another user" });
+            }
+        }
+
+        if (username) {
+            const existingUsername = await findUserByUsername(username);
+            if (existingUsername && existingUsername.id !== parseInt(id, 10)) {
+                return res.status(409).json({ success: false, message: "Username is already in use by another user" });
+            }
+        }
+
+        const updateData = { full_name, username, email, status };
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            updateData.password = hashedPassword;
+        }
+
+        const updatedStoreAdmin = await updateStoreAdminById(parseInt(id, 10), updateData);
+        if (!updatedStoreAdmin) {
+            return res.status(404).json({ success: false, message: "Store admin not found or no valid fields to update" });
+        }
+
+        return res.status(200).json({ success: true, message: "Store admin updated successfully", storeAdmin: updatedStoreAdmin });
+    } catch (error) {
+        console.error("Update Store Admin Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
 
 export const reassignStoreAdmin = async (req, res) => {
     try {
@@ -346,6 +454,9 @@ export const reassignStoreAdmin = async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
+
+
+
 
 
 

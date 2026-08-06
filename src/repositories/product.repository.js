@@ -82,6 +82,16 @@ export const assignProductToStoreInDB = async (store_id, product_id, inventoryDa
     return rows[0];
 };
 
+export const removeProductFromStoreInDB = async (store_id, product_id) => {
+    const query = `
+        DELETE FROM inventory
+        WHERE store_id = $1 AND product_id = $2
+        RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [store_id, product_id]);
+    return rows[0] || null;
+};
+
 export const getProductByIdFromDB = async (id) => {
     const productQuery = `
         SELECT p.*, gc.category_name, gc.description AS category_description
@@ -101,7 +111,7 @@ export const getProductByIdFromDB = async (id) => {
     return { ...productRows[0], store_inventory: inventoryRows };
 };
 
-export const getAllProductsFromDB = async () => {
+export const getAllProductsFromDB = async (limit = 10, offset = 0) => {
     const query = `
         SELECT p.*, gc.category_name,
             COALESCE(
@@ -116,10 +126,16 @@ export const getAllProductsFromDB = async () => {
         LEFT JOIN glass_categories gc ON p.category_id = gc.id
         LEFT JOIN inventory i ON p.id = i.product_id
         GROUP BY p.id, gc.id
-        ORDER BY p.created_at DESC;
+        ORDER BY p.created_at DESC
+        LIMIT $1 OFFSET $2;
     `;
-    const { rows } = await pool.query(query);
-    return rows;
+    const { rows } = await pool.query(query, [limit, offset]);
+    
+    const countQuery = `SELECT COUNT(*) FROM products;`;
+    const countResult = await pool.query(countQuery);
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    
+    return { products: rows, totalCount };
 };
 
 // 1. Update Product (Catalog Only - Pricing is now updated per store via assignProductToStore)

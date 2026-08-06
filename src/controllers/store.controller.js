@@ -10,7 +10,6 @@ import {
 import { findUserByEmail, findUserByUsername } from "../repositories/auth.repository.js";
 
 export const createStore = async (req, res) => {
-
     try {
         const userRole = req.user?.role;
         
@@ -57,8 +56,21 @@ export const createStore = async (req, res) => {
 
 export const getAllStores = async (req, res) => {
     try {
-        const stores = await getAllStoresFromDB();
-        return res.status(200).json({ success: true, count: stores.length, stores });
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const { stores, totalCount } = await getAllStoresFromDB(limit, offset);
+        const totalPages = Math.ceil(totalCount / limit);
+
+        return res.status(200).json({ 
+            success: true, 
+            count: stores.length, 
+            totalCount,
+            totalPages,
+            currentPage: page,
+            stores 
+        });
     } catch (error) {
         console.error("Get All Stores Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });

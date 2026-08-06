@@ -4,7 +4,8 @@ import {
     getAllStores,
     getStoreById,
     updateStore,
-    deleteStore
+    deleteStore,
+    updateStoreDiscount // ✨ ADDED IMPORT
 } from "../controllers/store.controller.js";
 import { authenticate, requireMasterAdmin } from "../middleware/auth.middleware.js";
 
@@ -16,5 +17,8 @@ router.get("/", authenticate, requireMasterAdmin, getAllStores);
 router.get("/:id", authenticate, requireMasterAdmin, getStoreById);
 router.put("/:id", authenticate, requireMasterAdmin, updateStore);
 router.delete("/:id", authenticate, requireMasterAdmin, deleteStore);
+
+// ✨ ADDED: Route for Master Admin to set store-wide discount limit
+router.put("/:storeId/discount", authenticate, requireMasterAdmin, updateStoreDiscount);
 
 export default router;

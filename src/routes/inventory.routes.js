@@ -4,7 +4,8 @@ import {
     getAllInventory,
     getMasterInventory, 
     updateMasterInventory, 
-    deleteMasterInventory 
+    deleteMasterInventory,
+    updateStockDiscount // ✨ ADDED IMPORT
 } from "../controllers/inventory.controller.js";
 import { authenticate, requireMasterAdmin } from "../middleware/auth.middleware.js";
 
@@ -24,5 +25,8 @@ router.get("/all",                              authenticate, requireMasterAdmin
 router.get("/master",                           authenticate, requireMasterAdmin, getMasterInventory);
 router.put("/master/:storeId/:productId",       authenticate, requireMasterAdmin, updateMasterInventory);
 router.delete("/master/:storeId/:productId",    authenticate, requireMasterAdmin, deleteMasterInventory);
+
+// ✨ ADDED: Route for Master Admin to set specific stock discount overrides
+router.put("/master/update-discount",           authenticate, requireMasterAdmin, updateStockDiscount);
 
 export default router;

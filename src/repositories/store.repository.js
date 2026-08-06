@@ -141,3 +141,15 @@ export const deleteStoreInDB = async (store_id) => {
     const { rows } = await pool.query(query, [store_id]);
     return rows[0];
 };
+
+// store.repository.js
+export const updateStoreDiscountInDB = async (storeId, maxDiscount) => {
+    const query = `
+        UPDATE stores 
+        SET default_max_discount = $1 
+        WHERE store_id = $2 
+        RETURNING store_id, store_name, default_max_discount;
+    `;
+    const { rows } = await pool.query(query, [maxDiscount, storeId]);
+    return rows[0];
+};

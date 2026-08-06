@@ -4,10 +4,11 @@ export const getDashboardMetrics = async () => {
     try {
         const summaryQuery = `
             SELECT 
-                COALESCE(SUM(CASE WHEN DATE(created_at) = CURRENT_DATE THEN grand_total ELSE 0 END), 0) AS today_revenue,
-                COALESCE(SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE) THEN grand_total ELSE 0 END), 0) AS month_revenue,
-                COUNT(invoice_id) AS total_bills
-            FROM invoices;
+                (SELECT COALESCE(SUM(CASE WHEN DATE(created_at) = CURRENT_DATE THEN grand_total ELSE 0 END), 0) FROM invoices) AS today_revenue,
+                (SELECT COALESCE(SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE) THEN grand_total ELSE 0 END), 0) FROM invoices) AS month_revenue,
+                (SELECT COUNT(invoice_id) FROM invoices) AS total_bills,
+                (SELECT COUNT(p.id) FROM products p JOIN glass_categories c ON p.category_id = c.id WHERE c.status = true) AS total_products,
+                (SELECT COUNT(store_id) FROM stores WHERE status = true) AS total_stores;
         `;
 
         const lowStockQuery = `

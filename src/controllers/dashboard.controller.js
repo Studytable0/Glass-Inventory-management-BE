@@ -14,6 +14,25 @@ export const getMasterDashboard = async (req, res) => {
 
         const dashboardData = await getDashboardMetrics();
 
+        // Format SQL strings to JS Numbers
+        dashboardData.summary = {
+            today_revenue: parseFloat(dashboardData.summary.today_revenue),
+            month_revenue: parseFloat(dashboardData.summary.month_revenue),
+            total_bills: parseInt(dashboardData.summary.total_bills, 10),
+            total_products: parseInt(dashboardData.summary.total_products, 10),
+            total_stores: parseInt(dashboardData.summary.total_stores, 10)
+        };
+
+        dashboardData.branchPerformance = dashboardData.branchPerformance.map(b => ({
+            ...b,
+            total_revenue: parseFloat(b.total_revenue)
+        }));
+
+        dashboardData.topProducts = dashboardData.topProducts.map(p => ({
+            ...p,
+            total_sold: parseInt(p.total_sold, 10)
+        }));
+
         return res.status(200).json({
             success: true,
             data: dashboardData
@@ -39,6 +58,18 @@ export const getStoreDashboard = async (req, res) => {
         }
 
         const dashboardData = await getStoreDashboardMetrics(storeId);
+
+        // Format SQL strings to JS Numbers
+        dashboardData.summary = {
+            today_revenue: parseFloat(dashboardData.summary.today_revenue),
+            month_revenue: parseFloat(dashboardData.summary.month_revenue),
+            total_bills: parseInt(dashboardData.summary.total_bills, 10)
+        };
+
+        dashboardData.topProducts = dashboardData.topProducts.map(p => ({
+            ...p,
+            total_sold: parseInt(p.total_sold, 10)
+        }));
 
         return res.status(200).json({
             success: true,

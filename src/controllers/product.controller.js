@@ -19,22 +19,38 @@ const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
 
     if (isNaN(l) || isNaN(w)) return 0;
 
-    const isFeet = String(dimensionUnit).toLowerCase().includes("feet") || String(dimensionUnit).toLowerCase() === "ft";
-    const isSqM = String(unit).toLowerCase() === "sq.m" || String(unit).toLowerCase() === "sqm";
+    const dUnit = String(dimensionUnit).toLowerCase();
+    const outUnit = String(unit).toLowerCase();
 
-    if (isFeet) {
-        const areaSqFt = l * w;
-        return isSqM ? parseFloat((areaSqFt * 0.092903).toFixed(4)) : parseFloat(areaSqFt.toFixed(4));
-    } else {
-        // Dimension in mm
-        const areaSqMm = l * w;
-        if (isSqM) {
-            return parseFloat((areaSqMm / 1000000).toFixed(4));
-        } else {
-            // Sq.ft
-            return parseFloat((areaSqMm / 92903.04).toFixed(4));
-        }
+    let lengthInFeet = 0;
+    let widthInFeet = 0;
+
+    // 1. Convert individual dimensions to Feet first
+    if (dUnit.includes("feet") || dUnit === "ft") {
+        lengthInFeet = l;
+        widthInFeet = w;
+    } 
+    else if (dUnit.includes("inch") || dUnit === "in") {
+        lengthInFeet = l / 12.0;
+        widthInFeet = w / 12.0;
+    } 
+    else {
+        // Defaults to millimeters (1 foot = 304.8 mm)
+        lengthInFeet = l / 304.8;
+        widthInFeet = w / 304.8;
     }
+
+    // 2. Calculate Area in Square Feet
+    const areaSqFt = lengthInFeet * widthInFeet;
+
+    // 3. Convert to Sq.m if requested, otherwise return Sq.ft
+    const isSqM = outUnit === "sq.m" || outUnit === "sqm" || outUnit.includes("meter");
+    
+    if (isSqM) {
+        return parseFloat((areaSqFt * 0.092903).toFixed(4));
+    } 
+
+    return parseFloat(areaSqFt.toFixed(4));
 };
 
 const resolveProductImageValue = (req, incomingValue) => {

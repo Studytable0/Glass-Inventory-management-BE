@@ -40,6 +40,7 @@ export const getGlobalInventoryFromDB = async () => {
         SELECT 
             i.store_id, s.store_name, 
             i.product_id, p.product_name, p.color, p.thickness,
+            p.length, p.width, p.dimension_unit, p.area, p.unit,  -- ✨ ADDED DIMENSIONS
             i.available_stock, i.minimum_stock, 
             i.purchase_rate, i.selling_rate, i.updated_at
         FROM inventory i

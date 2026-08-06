@@ -11,10 +11,14 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
         // 1. Loop through items to validate stock and calculate totals
         for (const item of items) {
+            // ✅ CORRECTED: Now fetching p.area and p.unit
             const checkStockQuery = `
-                SELECT available_stock, selling_rate
-                FROM inventory
-                WHERE store_id = $1 AND product_id = $2
+                SELECT 
+                    i.available_stock, i.selling_rate,
+                    p.product_name, p.thickness, p.length, p.width, p.color, p.area, p.unit
+                FROM inventory i
+                JOIN products p ON i.product_id = p.id
+                WHERE i.store_id = $1 AND i.product_id = $2
             `;
             const { rows } = await client.query(checkStockQuery, [storeId, item.product_id]);
             
@@ -29,21 +33,30 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
                 throw new Error(`Insufficient stock for Product ID ${item.product_id}. Only ${stockData.available_stock} left.`);
             }
 
-            // Math calculations
-            const unitPrice = parseFloat(stockData.selling_rate);
-            const itemTotalPrice = unitPrice * item.quantity;
+            // ✅ CORRECTED: Area-based math calculation! (Rate * Area * Quantity)
+            const unitPricePerSqFt = parseFloat(stockData.selling_rate);
+            const pieceArea = parseFloat(stockData.area);
+            const itemTotalPrice = unitPricePerSqFt * pieceArea * item.quantity;
 
             grandTotal += itemTotalPrice;
 
+            // ✅ CORRECTED: Saving area and unit to the receipt output
             processedItems.push({
                 productId: item.product_id,
+                productName: stockData.product_name,
+                thickness: stockData.thickness,
+                length: stockData.length,
+                width: stockData.width,
+                color: stockData.color,
+                area: pieceArea,
+                unit: stockData.unit,
                 quantity: item.quantity,
-                unitPrice: unitPrice,
+                unitPrice: unitPricePerSqFt,
                 totalPrice: itemTotalPrice
             });
         }
 
-        // 2. Insert into invoices table (no GST columns)
+        // 2. Insert into invoices table
         const invoiceQuery = `
             INSERT INTO invoices (store_id, billed_by, customer_name, customer_phone, sub_total, grand_total)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -96,6 +109,12 @@ export const getInvoicesByStore = async (storeId) => {
                 JSON_BUILD_OBJECT(
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
+                    'thickness', p.thickness,
+                    'length', p.length,
+                    'width', p.width,
+                    'color', p.color,
+                    'area', p.area,
+                    'unit', p.unit,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
                     'total_price', ii.total_price
@@ -127,6 +146,12 @@ export const getAllInvoicesGlobal = async () => {
                 JSON_BUILD_OBJECT(
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
+                    'thickness', p.thickness,
+                    'length', p.length,
+                    'width', p.width,
+                    'color', p.color,
+                    'area', p.area,
+                    'unit', p.unit,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
                     'total_price', ii.total_price

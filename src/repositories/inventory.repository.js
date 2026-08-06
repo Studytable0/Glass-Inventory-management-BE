@@ -7,6 +7,7 @@ import pool from "../config/db.js";
 export const getAvailableInventoryByStore = async (store_id, limit = 10, offset = 0) => {
     const query = `
         SELECT 
+            i.id,
             p.id AS product_id,
             p.product_name,
             c.category_name,
@@ -50,7 +51,7 @@ export const getAllInventoryFromDB = async (limit = 10, offset = 0) => {
     // Query 1: Full inventory list with all joined details
     const inventoryQuery = `
         SELECT 
-            i.id                        AS inventory_id,
+            i.id,
             i.store_id,
             s.store_name,
             s.store_location,
@@ -117,6 +118,7 @@ export const getAllInventoryFromDB = async (limit = 10, offset = 0) => {
 export const getGlobalInventoryFromDB = async (limit = 10, offset = 0) => {
     const query = `
         SELECT 
+            i.id,
             i.store_id, s.store_name, 
             i.product_id, p.product_name, p.color, p.thickness,
             i.available_stock, i.minimum_stock, 

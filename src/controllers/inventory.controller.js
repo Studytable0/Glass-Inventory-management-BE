@@ -31,14 +31,23 @@ export const getAvailableProducts = async (req, res) => {
         const { inventory: availableProducts, totalCount } = await getAvailableInventoryByStore(storeId, limit, offset);
         const totalPages = Math.ceil(totalCount / limit);
 
+        // Format numeric fields to floats
+        const formattedProducts = availableProducts.map(item => ({
+            ...item,
+            selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
+            area: item.area ? parseFloat(item.area) : 0,
+            length: item.length ? parseFloat(item.length) : 0,
+            width: item.width ? parseFloat(item.width) : 0
+        }));
+
         // Send success response
         return res.status(200).json({
             success: true,
-            count: availableProducts.length,
+            count: formattedProducts.length,
             totalCount,
             totalPages,
             currentPage: page,
-            data: availableProducts
+            data: formattedProducts
         });
 
     } catch (error) {
@@ -66,6 +75,17 @@ export const getAllInventory = async (req, res) => {
         const totalCount = parseInt(summary.total_inventory_records, 10);
         const totalPages = Math.ceil(totalCount / limit);
 
+        // Format numeric fields
+        const formattedInventory = inventory.map(item => ({
+            ...item,
+            purchase_rate: item.purchase_rate ? parseFloat(item.purchase_rate) : 0,
+            selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
+            stock_value: item.stock_value ? parseFloat(item.stock_value) : 0,
+            area: item.area ? parseFloat(item.area) : 0,
+            length: item.length ? parseFloat(item.length) : 0,
+            width: item.width ? parseFloat(item.width) : 0
+        }));
+
         return res.status(200).json({
             success: true,
             summary: {
@@ -79,11 +99,11 @@ export const getAllInventory = async (req, res) => {
                 low_stock_count:          parseInt(summary.low_stock_count),
                 out_of_stock_count:       parseInt(summary.out_of_stock_count),
             },
-            count: inventory.length,
+            count: formattedInventory.length,
             totalCount,
             totalPages,
             currentPage: page,
-            data: inventory,
+            data: formattedInventory,
         });
     } catch (error) {
         console.error("Get All Inventory Error:", error);
@@ -101,13 +121,19 @@ export const getMasterInventory = async (req, res) => {
         const { inventory, totalCount } = await getGlobalInventoryFromDB(limit, offset);
         const totalPages = Math.ceil(totalCount / limit);
         
+        const formattedInventory = inventory.map(item => ({
+            ...item,
+            purchase_rate: item.purchase_rate ? parseFloat(item.purchase_rate) : 0,
+            selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0
+        }));
+
         return res.status(200).json({ 
             success: true, 
-            count: inventory.length, 
+            count: formattedInventory.length, 
             totalCount,
             totalPages,
             currentPage: page,
-            data: inventory 
+            data: formattedInventory 
         });
     } catch (error) {
         console.error("Get Master Inventory Error:", error);

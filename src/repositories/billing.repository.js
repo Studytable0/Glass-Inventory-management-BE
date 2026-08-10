@@ -1,5 +1,48 @@
 import pool from "../config/db.js";
 
+const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
+    const l = parseFloat(length);
+    const w = parseFloat(width);
+
+    if (isNaN(l) || isNaN(w)) return 0;
+
+    const dUnit = String(dimensionUnit).toLowerCase();
+    const outUnit = String(unit).toLowerCase();
+
+    let lengthInFeet = 0;
+    let widthInFeet = 0;
+
+    if (dUnit.includes("feet") || dUnit === "ft") {
+        lengthInFeet = l;
+        widthInFeet = w;
+    } 
+    else if (dUnit.includes("inch") || dUnit === "in") {
+        lengthInFeet = l / 12.0;
+        widthInFeet = w / 12.0;
+    } 
+    else {
+        lengthInFeet = l / 304.8;
+        widthInFeet = w / 304.8;
+    }
+
+    const areaSqFt = lengthInFeet * widthInFeet;
+    const isSqM = outUnit === "sq.m" || outUnit === "sqm" || outUnit.includes("meter");
+    
+    if (isSqM) {
+        return parseFloat((areaSqFt * 0.092903).toFixed(4));
+    } 
+
+    return parseFloat(areaSqFt.toFixed(4));
+};
+
+const getBillingDimension = (val) => {
+    if (val <= 12) return 12;
+    if (val <= 18) return 18;
+    if (val <= 24) return 24;
+    if (val <= 36) return 36;
+    return val;
+};
+
 export const createInvoiceTx = async ({ storeId, userId, customerName, customerPhone, items }) => {
     const client = await pool.connect();
     
@@ -16,7 +59,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
             const checkStockQuery = `
                 SELECT 
                     i.available_stock, i.selling_rate, i.override_max_discount,
-                    p.product_name, p.thickness, p.length, p.width, p.color, p.area, p.unit,
+                    p.product_name, p.thickness, p.length, p.width, p.color, p.area, p.unit, p.dimension_unit,
                     s.default_max_discount
                 FROM inventory i
                 JOIN products p ON i.product_id = p.id
@@ -51,9 +94,15 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
             // ✅ MATH CALCULATION: Area * Rate * Qty
             const unitPricePerSqFt = parseFloat(stockData.selling_rate);
-            const pieceArea = parseFloat(stockData.area);
             
-            const baseTotalPrice = unitPricePerSqFt * pieceArea * item.quantity;
+            const originalLength = parseFloat(stockData.length);
+            const originalWidth = parseFloat(stockData.width);
+            const billingLength = getBillingDimension(originalLength);
+            const billingWidth = getBillingDimension(originalWidth);
+            
+            const billingArea = calculateArea(billingLength, billingWidth, stockData.dimension_unit, stockData.unit);
+            
+            const baseTotalPrice = unitPricePerSqFt * billingArea * item.quantity;
             const discountAmount = baseTotalPrice * (appliedDiscount / 100);
             const finalItemPrice = baseTotalPrice - discountAmount;
 
@@ -68,7 +117,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
                 length: stockData.length,
                 width: stockData.width,
                 color: stockData.color,
-                area: pieceArea,
+                area: billingArea,
                 unit: stockData.unit,
                 quantity: item.quantity,
                 unitPrice: unitPricePerSqFt,

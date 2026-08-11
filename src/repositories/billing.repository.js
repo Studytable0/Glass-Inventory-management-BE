@@ -95,16 +95,23 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
             // ✅ MATH CALCULATION: Area * Rate * Qty
             const unitPricePerSqFt = parseFloat(stockData.selling_rate);
             
-            const originalLength = parseFloat(stockData.length);
-            const originalWidth = parseFloat(stockData.width);
+            const originalLength = item.height !== undefined ? parseFloat(item.height) : parseFloat(stockData.length);
+            const originalWidth = item.width !== undefined ? parseFloat(item.width) : parseFloat(stockData.width);
             const billingLength = getBillingDimension(originalLength);
             const billingWidth = getBillingDimension(originalWidth);
             
-            const billingArea = calculateArea(billingLength, billingWidth, stockData.dimension_unit, stockData.unit);
+            const billingArea = item.area !== undefined ? parseFloat(item.area) : calculateArea(billingLength, billingWidth, stockData.dimension_unit, stockData.unit);
             
-            const baseTotalPrice = unitPricePerSqFt * billingArea * item.quantity;
-            const discountAmount = baseTotalPrice * (appliedDiscount / 100);
-            const finalItemPrice = baseTotalPrice - discountAmount;
+            let baseTotalPrice = unitPricePerSqFt * billingArea * item.quantity;
+            let discountAmount = baseTotalPrice * (appliedDiscount / 100);
+            let finalItemPrice = baseTotalPrice - discountAmount;
+
+            // If frontend sends charged_rate, it acts as the exact final total price for this item
+            if (item.charged_rate !== undefined) {
+                finalItemPrice = parseFloat(item.charged_rate);
+                baseTotalPrice = finalItemPrice; // Assuming discount is already factored in by frontend
+                discountAmount = 0;
+            }
 
             subTotal += baseTotalPrice;
             grandTotal += finalItemPrice;
@@ -118,6 +125,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
                 width: originalWidth,
                 billingLength: billingLength,
                 billingWidth: billingWidth,
+                chargedDimension: item.charged_dimension,
                 color: stockData.color,
                 area: billingArea,
                 unit: stockData.unit,
@@ -159,7 +167,29 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
         }
 
         await client.query('COMMIT'); // ✅ Save all changes
-        return { invoice, items: processedItems };
+        
+        const formattedInvoice = {
+            invoice_id: invoice.invoice_id,
+            customer_name: invoice.customer_name,
+            total_price: invoice.grand_total,
+            created_at: invoice.created_at
+        };
+
+        const formattedItems = processedItems.map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            thickness: item.thickness,
+            length: item.length,
+            width: item.width,
+            charged_dimension: item.chargedDimension,
+            color: item.color,
+            area: item.area,
+            unit: item.unit,
+            quantity: item.quantity,
+            charged_rate: item.totalPrice
+        }));
+
+        return { invoice: formattedInvoice, items: formattedItems };
 
     } catch (error) {
         await client.query('ROLLBACK'); // ❌ Undo everything if an error occurs

@@ -94,7 +94,21 @@ export const removeProductFromStoreInDB = async (store_id, product_id) => {
 
 export const getProductByIdFromDB = async (id) => {
     const productQuery = `
-        SELECT p.*, gc.category_name, gc.description AS category_description
+        SELECT p.*, gc.category_name, gc.description AS category_description,
+            CASE 
+                WHEN p.length <= 12 THEN 12
+                WHEN p.length <= 18 THEN 18
+                WHEN p.length <= 24 THEN 24
+                WHEN p.length <= 36 THEN 36
+                ELSE p.length
+            END AS billing_length,
+            CASE 
+                WHEN p.width <= 12 THEN 12
+                WHEN p.width <= 18 THEN 18
+                WHEN p.width <= 24 THEN 24
+                WHEN p.width <= 36 THEN 36
+                ELSE p.width
+            END AS billing_width
         FROM products p
         LEFT JOIN glass_categories gc ON p.category_id = gc.id
         WHERE p.id = $1;
@@ -114,6 +128,20 @@ export const getProductByIdFromDB = async (id) => {
 export const getAllProductsFromDB = async (limit = 10, offset = 0) => {
     const query = `
         SELECT p.*, gc.category_name,
+            CASE 
+                WHEN p.length <= 12 THEN 12
+                WHEN p.length <= 18 THEN 18
+                WHEN p.length <= 24 THEN 24
+                WHEN p.length <= 36 THEN 36
+                ELSE p.length
+            END AS billing_length,
+            CASE 
+                WHEN p.width <= 12 THEN 12
+                WHEN p.width <= 18 THEN 18
+                WHEN p.width <= 24 THEN 24
+                WHEN p.width <= 36 THEN 36
+                ELSE p.width
+            END AS billing_width,
             COALESCE(
                 JSON_AGG(
                     JSON_BUILD_OBJECT(
@@ -187,6 +215,20 @@ export const getAllProductsByStoreIdFromDB = async (store_id) => {
     const query = `
         SELECT
             p.*,
+            CASE 
+                WHEN p.length <= 12 THEN 12
+                WHEN p.length <= 18 THEN 18
+                WHEN p.length <= 24 THEN 24
+                WHEN p.length <= 36 THEN 36
+                ELSE p.length
+            END AS billing_length,
+            CASE 
+                WHEN p.width <= 12 THEN 12
+                WHEN p.width <= 18 THEN 18
+                WHEN p.width <= 24 THEN 24
+                WHEN p.width <= 36 THEN 36
+                ELSE p.width
+            END AS billing_width,
             gc.category_name,
             gc.description AS category_description,
             i.purchase_rate,

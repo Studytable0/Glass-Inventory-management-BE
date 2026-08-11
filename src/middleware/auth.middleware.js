@@ -54,3 +54,22 @@ export const requireMasterAdmin = (req, res, next) => {
 
     next();
 };
+
+export const requireMasterOrStoreAdmin = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized access"
+        });
+    }
+
+    const role = req.user.role ? req.user.role.toUpperCase() : "";
+    if (role !== "MASTER_ADMIN" && role !== "MASTERADMIN" && role !== "STORE_ADMIN" && role !== "STOREADMIN") {
+        return res.status(403).json({
+            success: false,
+            message: "Access forbidden: Master or Store Admin privileges required"
+        });
+    }
+
+    next();
+};

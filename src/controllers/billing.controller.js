@@ -26,6 +26,26 @@ export const createBill = async (req, res) => {
             if (!item.product_id || !item.quantity || item.quantity <= 0) {
                  return res.status(400).json({ success: false, message: "Each item must have a valid product_id and a quantity greater than 0." });
             }
+            
+            if (item.width !== undefined && (isNaN(item.width) || item.width <= 0)) {
+                return res.status(400).json({ success: false, message: "Item width must be a valid number greater than 0." });
+            }
+            
+            if (item.height !== undefined && (isNaN(item.height) || item.height <= 0)) {
+                return res.status(400).json({ success: false, message: "Item height must be a valid number greater than 0." });
+            }
+            
+            if (item.charged_rate !== undefined && (isNaN(item.charged_rate) || item.charged_rate < 0)) {
+                return res.status(400).json({ success: false, message: "Item charged_rate must be a valid non-negative number." });
+            }
+            
+            if (item.area !== undefined && (isNaN(item.area) || item.area <= 0)) {
+                return res.status(400).json({ success: false, message: "Item area must be a valid positive number." });
+            }
+            
+            if (item.charged_dimension !== undefined && (isNaN(item.charged_dimension) || item.charged_dimension <= 0)) {
+                return res.status(400).json({ success: false, message: "Item charged_dimension must be a valid positive number." });
+            }
         }
 
         // Execute Transaction
@@ -104,3 +124,4 @@ export const getGlobalBillingHistory = async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
+

@@ -19,10 +19,13 @@ export const getAvailableInventoryByStore = async (store_id, limit = 10, offset 
             p.area,
             p.unit,
             i.selling_rate,
-            i.available_stock
+            i.available_stock,
+            i.override_max_discount, 
+            s.default_max_discount
         FROM inventory i
         JOIN products p ON i.product_id = p.id
         JOIN glass_categories c ON p.category_id = c.id
+        JOIN stores s ON i.store_id = s.store_id
         WHERE i.store_id = $1 AND i.available_stock > 0
         ORDER BY c.category_name, p.thickness
         LIMIT $2 OFFSET $3;
@@ -45,20 +48,18 @@ export const getAvailableInventoryByStore = async (store_id, limit = 10, offset 
 // MASTER ADMIN FUNCTIONS
 // ==========================================
 
-// READ: Get ALL inventory with full product, store, category details + summary stats
-// READ: Get ALL inventory with full product, store, category details + summary stats
 export const getAllInventoryFromDB = async (limit = 10, offset = 0) => {
-    // Query 1: Full inventory list with all joined details
     const inventoryQuery = `
         SELECT 
             i.id,
             i.store_id,
             s.store_name,
             s.store_location,
+            s.default_max_discount,
             i.product_id,
             p.product_name,
             p.product_image,
-            c.id                        AS category_id,
+            c.id AS category_id,
             c.category_name,
             p.color,
             p.thickness,
@@ -71,12 +72,13 @@ export const getAllInventoryFromDB = async (limit = 10, offset = 0) => {
             i.selling_rate,
             i.available_stock,
             i.minimum_stock,
+            i.override_max_discount,
             CASE 
                 WHEN i.available_stock <= 0                      THEN 'out_of_stock'
                 WHEN i.available_stock <= i.minimum_stock        THEN 'low_stock'
-                ELSE                                                  'in_stock'
-            END                         AS stock_status,
-            (i.available_stock * i.selling_rate)   AS stock_value,
+                ELSE                                             'in_stock'
+            END AS stock_status,
+            (i.available_stock * i.selling_rate) AS stock_value,
             i.updated_at
         FROM inventory i
         JOIN products p  ON i.product_id = p.id
@@ -86,19 +88,17 @@ export const getAllInventoryFromDB = async (limit = 10, offset = 0) => {
         LIMIT $1 OFFSET $2;
     `;
 
-    // Query 2: Aggregate summary stats across the entire company
     const summaryQuery = `
         SELECT
-            COUNT(*)                                            AS total_inventory_records,
+            COUNT(*)                                             AS total_inventory_records,
             COUNT(DISTINCT i.product_id)                       AS total_unique_products,
             COUNT(DISTINCT i.store_id)                         AS total_stores_with_stock,
             COALESCE(SUM(i.available_stock), 0)                AS total_stock_units,
             COALESCE(SUM(i.available_stock * i.selling_rate), 0)  AS total_stock_value,
             COALESCE(SUM(i.available_stock * i.purchase_rate), 0) AS total_purchase_value,
-            COUNT(*) FILTER (WHERE i.available_stock <= 0)                   AS out_of_stock_count,
-            COUNT(*) FILTER (WHERE i.available_stock > 0 
-                               AND i.available_stock <= i.minimum_stock)     AS low_stock_count,
-            COUNT(*) FILTER (WHERE i.available_stock > i.minimum_stock)      AS in_stock_count
+            COUNT(*) FILTER (WHERE i.available_stock <= 0)                                   AS out_of_stock_count,
+            COUNT(*) FILTER (WHERE i.available_stock > 0 AND i.available_stock <= i.minimum_stock)     AS low_stock_count,
+            COUNT(*) FILTER (WHERE i.available_stock > i.minimum_stock)                      AS in_stock_count
         FROM inventory i
         JOIN stores s ON i.store_id = s.store_id;
     `;
@@ -114,16 +114,16 @@ export const getAllInventoryFromDB = async (limit = 10, offset = 0) => {
     };
 };
 
-// READ: Get all inventory across all stores (with store and product names joined)
 export const getGlobalInventoryFromDB = async (limit = 10, offset = 0) => {
     const query = `
         SELECT 
             i.id,
-            i.store_id, s.store_name, 
+            i.store_id, s.store_name, s.default_max_discount,
             i.product_id, p.product_name, p.color, p.thickness,
-            p.length, p.width, p.dimension_unit, p.area, p.unit,  -- ✨ ADDED DIMENSIONS
+            p.length, p.width, p.dimension_unit, p.area, p.unit,  
             i.available_stock, i.minimum_stock, 
-            i.purchase_rate, i.selling_rate, i.updated_at
+            i.purchase_rate, i.selling_rate, 
+            i.override_max_discount, i.updated_at
         FROM inventory i
         JOIN products p ON i.product_id = p.id
         JOIN stores s ON i.store_id = s.store_id
@@ -168,10 +168,9 @@ export const updateInventoryInDB = async (storeId, productId, updateData) => {
 
     if (fields.length === 0) return null;
 
-    // Add updated_at timestamp
     fields.push(`updated_at = CURRENT_TIMESTAMP`);
-
     values.push(storeId, productId);
+    
     const query = `
         UPDATE inventory
         SET ${fields.join(", ")}
@@ -183,7 +182,6 @@ export const updateInventoryInDB = async (storeId, productId, updateData) => {
     return rows[0];
 };
 
-// DELETE: Remove a product completely from a store's inventory
 export const deleteInventoryFromDB = async (storeId, productId) => {
     const query = `
         DELETE FROM inventory
@@ -201,7 +199,6 @@ export const updateStockDiscountOverrideInDB = async (storeId, productId, overri
         WHERE store_id = $2 AND product_id = $3 
         RETURNING store_id, product_id, override_max_discount;
     `;
-    // Pass null if you want to remove the override and fallback to store default
     const limit = overrideMaxDiscount === "" ? null : overrideMaxDiscount;
     const { rows } = await pool.query(query, [limit, storeId, productId]);
     return rows[0];

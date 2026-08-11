@@ -13,10 +13,8 @@ import {
 
 export const getAvailableProducts = async (req, res) => {
     try {
-        // Grab the storeId from the logged-in user's token (set by the authenticate middleware)
         const storeId = req.user?.storeId;
 
-        // Ensure the user actually belongs to a store
         if (!storeId) {
             return res.status(403).json({
                 success: false,
@@ -28,20 +26,25 @@ export const getAvailableProducts = async (req, res) => {
         const limit = parseInt(req.query.limit, 10) || 10;
         const offset = (page - 1) * limit;
 
-        // Fetch the products
         const { inventory: availableProducts, totalCount } = await getAvailableInventoryByStore(storeId, limit, offset);
         const totalPages = Math.ceil(totalCount / limit);
 
-        // Format numeric fields to floats
-        const formattedProducts = availableProducts.map(item => ({
-            ...item,
-            selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
-            area: item.area ? parseFloat(item.area) : 0,
-            length: item.length ? parseFloat(item.length) : 0,
-            width: item.width ? parseFloat(item.width) : 0
-        }));
+        const formattedProducts = availableProducts.map(item => {
+            const storeLimit = parseFloat(item.default_max_discount || 0);
+            const overrideLimit = item.override_max_discount !== null ? parseFloat(item.override_max_discount) : null;
+            
+            return {
+                ...item,
+                selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
+                area: item.area ? parseFloat(item.area) : 0,
+                length: item.length ? parseFloat(item.length) : 0,
+                width: item.width ? parseFloat(item.width) : 0,
+                default_max_discount: storeLimit,
+                override_max_discount: overrideLimit,
+                effective_max_discount: overrideLimit !== null ? overrideLimit : storeLimit // ✨ Helper for Frontend!
+            };
+        });
 
-        // Send success response
         return res.status(200).json({
             success: true,
             count: formattedProducts.length,
@@ -53,11 +56,7 @@ export const getAvailableProducts = async (req, res) => {
 
     } catch (error) {
         console.error("Get Available Products Error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
 
@@ -65,7 +64,6 @@ export const getAvailableProducts = async (req, res) => {
 // MASTER ADMIN CONTROLLERS
 // ==========================================
 
-// GET ALL INVENTORY — Full list + summary stats (Master Admin only)
 export const getAllInventory = async (req, res) => {
     try {
         const page = parseInt(req.query.page, 10) || 1;
@@ -76,16 +74,23 @@ export const getAllInventory = async (req, res) => {
         const totalCount = parseInt(summary.total_inventory_records, 10);
         const totalPages = Math.ceil(totalCount / limit);
 
-        // Format numeric fields
-        const formattedInventory = inventory.map(item => ({
-            ...item,
-            purchase_rate: item.purchase_rate ? parseFloat(item.purchase_rate) : 0,
-            selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
-            stock_value: item.stock_value ? parseFloat(item.stock_value) : 0,
-            area: item.area ? parseFloat(item.area) : 0,
-            length: item.length ? parseFloat(item.length) : 0,
-            width: item.width ? parseFloat(item.width) : 0
-        }));
+        const formattedInventory = inventory.map(item => {
+            const storeLimit = parseFloat(item.default_max_discount || 0);
+            const overrideLimit = item.override_max_discount !== null ? parseFloat(item.override_max_discount) : null;
+            
+            return {
+                ...item,
+                purchase_rate: item.purchase_rate ? parseFloat(item.purchase_rate) : 0,
+                selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
+                stock_value: item.stock_value ? parseFloat(item.stock_value) : 0,
+                area: item.area ? parseFloat(item.area) : 0,
+                length: item.length ? parseFloat(item.length) : 0,
+                width: item.width ? parseFloat(item.width) : 0,
+                default_max_discount: storeLimit,
+                override_max_discount: overrideLimit,
+                effective_max_discount: overrideLimit !== null ? overrideLimit : storeLimit
+            };
+        });
 
         return res.status(200).json({
             success: true,
@@ -112,7 +117,6 @@ export const getAllInventory = async (req, res) => {
     }
 };
 
-// READ ALL
 export const getMasterInventory = async (req, res) => {
     try {
         const page = parseInt(req.query.page, 10) || 1;
@@ -122,11 +126,19 @@ export const getMasterInventory = async (req, res) => {
         const { inventory, totalCount } = await getGlobalInventoryFromDB(limit, offset);
         const totalPages = Math.ceil(totalCount / limit);
         
-        const formattedInventory = inventory.map(item => ({
-            ...item,
-            purchase_rate: item.purchase_rate ? parseFloat(item.purchase_rate) : 0,
-            selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0
-        }));
+        const formattedInventory = inventory.map(item => {
+            const storeLimit = parseFloat(item.default_max_discount || 0);
+            const overrideLimit = item.override_max_discount !== null ? parseFloat(item.override_max_discount) : null;
+            
+            return {
+                ...item,
+                purchase_rate: item.purchase_rate ? parseFloat(item.purchase_rate) : 0,
+                selling_rate: item.selling_rate ? parseFloat(item.selling_rate) : 0,
+                default_max_discount: storeLimit,
+                override_max_discount: overrideLimit,
+                effective_max_discount: overrideLimit !== null ? overrideLimit : storeLimit
+            };
+        });
 
         return res.status(200).json({ 
             success: true, 
@@ -142,10 +154,8 @@ export const getMasterInventory = async (req, res) => {
     }
 };
 
-// UPDATE
 export const updateMasterInventory = async (req, res) => {
     try {
-        // We get the storeId and productId from the URL params
         const { storeId, productId } = req.params;
         const updateData = req.body; 
 
@@ -166,7 +176,6 @@ export const updateMasterInventory = async (req, res) => {
     }
 };
 
-// DELETE
 export const deleteMasterInventory = async (req, res) => {
     try {
         const { storeId, productId } = req.params;
@@ -187,7 +196,6 @@ export const deleteMasterInventory = async (req, res) => {
     }
 };
 
-// inventory.controller.js
 export const updateStockDiscount = async (req, res) => {
     try {
         const { store_id, product_id, override_max_discount } = req.body;

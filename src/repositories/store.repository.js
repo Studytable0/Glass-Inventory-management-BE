@@ -70,14 +70,13 @@ export const createStoreWithAdminTx = async (storeData, adminData) => {
     }
 };
 
-export const getAllStoresFromDB = async (limit = 10, offset = 0) => {
+export const getAllStoresFromDB = async () => {
     const query = `
         SELECT store_id, store_email, store_name, store_location, status, created_at
         FROM stores
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2;
+        ORDER BY created_at DESC;
     `;
-    const { rows } = await pool.query(query, [limit, offset]);
+    const { rows } = await pool.query(query);
     
     const countQuery = `SELECT COUNT(*) FROM stores;`;
     const countResult = await pool.query(countQuery);

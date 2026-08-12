@@ -57,19 +57,12 @@ export const createStore = async (req, res) => {
 
 export const getAllStores = async (req, res) => {
     try {
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10;
-        const offset = (page - 1) * limit;
-
-        const { stores, totalCount } = await getAllStoresFromDB(limit, offset);
-        const totalPages = Math.ceil(totalCount / limit);
+        const { stores, totalCount } = await getAllStoresFromDB();
 
         return res.status(200).json({ 
             success: true, 
             count: stores.length, 
             totalCount,
-            totalPages,
-            currentPage: page,
             stores 
         });
     } catch (error) {

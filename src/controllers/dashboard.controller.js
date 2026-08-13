@@ -1,5 +1,11 @@
 import { getDashboardMetrics, getStoreDashboardMetrics } from "../repositories/dashboard.repository.js";
 
+// ==========================================
+// MASTER ADMIN DASHBOARD
+// ==========================================
+// ==========================================
+// MASTER ADMIN DASHBOARD
+// ==========================================
 export const getMasterDashboard = async (req, res) => {
     try {
         const userRole = req.user?.role;
@@ -33,6 +39,14 @@ export const getMasterDashboard = async (req, res) => {
             total_sold: parseInt(p.total_sold, 10)
         }));
 
+        // ✨ NEW: Format Overall Graph Data
+        if (dashboardData.monthlyRevenue) {
+            dashboardData.monthlyRevenue = dashboardData.monthlyRevenue.map(m => ({
+                month: m.month, // e.g., "Aug 2026"
+                revenue: parseFloat(m.revenue)
+            }));
+        }
+
         return res.status(200).json({
             success: true,
             data: dashboardData
@@ -44,6 +58,9 @@ export const getMasterDashboard = async (req, res) => {
     }
 };
 
+// ==========================================
+// STORE ADMIN DASHBOARD
+// ==========================================
 export const getStoreDashboard = async (req, res) => {
     try {
         const userRole = req.user?.role;
@@ -63,13 +80,24 @@ export const getStoreDashboard = async (req, res) => {
         dashboardData.summary = {
             today_revenue: parseFloat(dashboardData.summary.today_revenue),
             month_revenue: parseFloat(dashboardData.summary.month_revenue),
-            total_bills: parseInt(dashboardData.summary.total_bills, 10)
+            total_bills: parseInt(dashboardData.summary.total_bills, 10),
+            total_products: parseInt(dashboardData.summary.total_products, 10),
+            total_stock_units: parseInt(dashboardData.summary.total_stock_units, 10),
+            out_of_stock_count: parseInt(dashboardData.summary.out_of_stock_count, 10)
         };
 
         dashboardData.topProducts = dashboardData.topProducts.map(p => ({
             ...p,
             total_sold: parseInt(p.total_sold, 10)
         }));
+
+        // Format Graph Data
+        if (dashboardData.monthlyRevenue) {
+            dashboardData.monthlyRevenue = dashboardData.monthlyRevenue.map(m => ({
+                month: m.month, // e.g., "Aug 2026"
+                revenue: parseFloat(m.revenue)
+            }));
+        }
 
         return res.status(200).json({
             success: true,

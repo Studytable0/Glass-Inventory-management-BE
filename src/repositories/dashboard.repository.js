@@ -1,5 +1,8 @@
 import pool from "../config/db.js";
 
+// ==========================================
+// MASTER ADMIN DASHBOARD METRICS
+// ==========================================
 export const getDashboardMetrics = async () => {
     try {
         const summaryQuery = `
@@ -27,10 +30,12 @@ export const getDashboardMetrics = async () => {
 
         const branchPerformanceQuery = `
             SELECT 
-                store_id, 
-                COALESCE(SUM(grand_total), 0) AS total_revenue
-            FROM invoices
-            GROUP BY store_id
+                i.store_id, 
+                s.store_name,
+                COALESCE(SUM(i.grand_total), 0) AS total_revenue
+            FROM invoices i
+            JOIN stores s ON i.store_id = s.store_id
+            GROUP BY i.store_id, s.store_name
             ORDER BY total_revenue DESC;
         `;
 
@@ -45,19 +50,30 @@ export const getDashboardMetrics = async () => {
             LIMIT 5;
         `;
 
-        // Execute using pool.query directly to resolve the deprecation warning
-        const [summaryRes, lowStockRes, branchRes, topSellingRes] = await Promise.all([
+        const monthlyRevenueQuery = `
+            SELECT 
+                TO_CHAR(date_trunc('month', created_at), 'Mon YYYY') AS month,
+                COALESCE(SUM(grand_total), 0) AS revenue
+            FROM invoices
+            WHERE created_at >= NOW() - INTERVAL '6 months'
+            GROUP BY date_trunc('month', created_at)
+            ORDER BY date_trunc('month', created_at) ASC;
+        `;
+
+        const [summaryRes, lowStockRes, branchRes, topSellingRes, monthlyRevRes] = await Promise.all([
             pool.query(summaryQuery),
             pool.query(lowStockQuery),
             pool.query(branchPerformanceQuery),
-            pool.query(topSellingQuery)
+            pool.query(topSellingQuery),
+            pool.query(monthlyRevenueQuery)
         ]);
 
         return {
             summary: summaryRes.rows[0],
             lowStockAlerts: lowStockRes.rows,
             branchPerformance: branchRes.rows,
-            topProducts: topSellingRes.rows
+            topProducts: topSellingRes.rows,
+            monthlyRevenue: monthlyRevRes.rows 
         };
 
     } catch (error) {
@@ -65,19 +81,21 @@ export const getDashboardMetrics = async () => {
     }
 };
 
+// ==========================================
+// STORE ADMIN DASHBOARD METRICS
+// ==========================================
 export const getStoreDashboardMetrics = async (storeId) => {
     try {
-        // 1. Summary specific to THIS store
         const summaryQuery = `
             SELECT 
-                COALESCE(SUM(CASE WHEN DATE(created_at) = CURRENT_DATE THEN grand_total ELSE 0 END), 0) AS today_revenue,
-                COALESCE(SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE) THEN grand_total ELSE 0 END), 0) AS month_revenue,
-                COUNT(invoice_id) AS total_bills
-            FROM invoices
-            WHERE store_id = $1;
+                (SELECT COALESCE(SUM(CASE WHEN DATE(created_at) = CURRENT_DATE THEN grand_total ELSE 0 END), 0) FROM invoices WHERE store_id = $1) AS today_revenue,
+                (SELECT COALESCE(SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE) THEN grand_total ELSE 0 END), 0) FROM invoices WHERE store_id = $1) AS month_revenue,
+                (SELECT COUNT(invoice_id) FROM invoices WHERE store_id = $1) AS total_bills,
+                (SELECT COUNT(product_id) FROM inventory WHERE store_id = $1) AS total_products,
+                (SELECT COALESCE(SUM(available_stock), 0) FROM inventory WHERE store_id = $1) AS total_stock_units,
+                (SELECT COUNT(*) FROM inventory WHERE store_id = $1 AND available_stock <= 0) AS out_of_stock_count;
         `;
 
-        // 2. Low Stock Alerts for THIS store only
         const lowStockQuery = `
             SELECT 
                 p.product_name, 
@@ -91,7 +109,6 @@ export const getStoreDashboardMetrics = async (storeId) => {
             ORDER BY i.available_stock ASC;
         `;
 
-        // 3. Top 5 Selling Products for THIS store only
         const topSellingQuery = `
             SELECT 
                 p.product_name, 
@@ -105,17 +122,29 @@ export const getStoreDashboardMetrics = async (storeId) => {
             LIMIT 5;
         `;
 
-        // Execute queries concurrently for this specific store ID
-        const [summaryRes, lowStockRes, topSellingRes] = await Promise.all([
+        const monthlyRevenueQuery = `
+            SELECT 
+                TO_CHAR(date_trunc('month', created_at), 'Mon YYYY') AS month,
+                COALESCE(SUM(grand_total), 0) AS revenue
+            FROM invoices
+            WHERE store_id = $1 
+              AND created_at >= NOW() - INTERVAL '6 months'
+            GROUP BY date_trunc('month', created_at)
+            ORDER BY date_trunc('month', created_at) ASC;
+        `;
+
+        const [summaryRes, lowStockRes, topSellingRes, monthlyRevRes] = await Promise.all([
             pool.query(summaryQuery, [storeId]),
             pool.query(lowStockQuery, [storeId]),
-            pool.query(topSellingQuery, [storeId])
+            pool.query(topSellingQuery, [storeId]),
+            pool.query(monthlyRevenueQuery, [storeId])
         ]);
 
         return {
             summary: summaryRes.rows[0],
             lowStockAlerts: lowStockRes.rows,
-            topProducts: topSellingRes.rows
+            topProducts: topSellingRes.rows,
+            monthlyRevenue: monthlyRevRes.rows 
         };
 
     } catch (error) {

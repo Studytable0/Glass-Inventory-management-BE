@@ -56,7 +56,9 @@ const calculateArea = (length, width, dimensionUnit = "mm", unit = "Sq.ft") => {
 
 const resolveProductImageValue = (req, incomingValue) => {
     if (req.file) {
-        return `${req.protocol}://${req.get("host")}/uploads/products/${req.file.filename}`;
+        // Return a relative path so the frontend can append its own base URL.
+        // This ensures the image loads on any device, not just localhost.
+        return `/uploads/products/${req.file.filename}`;
     }
 
     if (incomingValue !== undefined) {
@@ -68,9 +70,9 @@ const resolveProductImageValue = (req, incomingValue) => {
 
 export const createProduct = async (req, res) => {
     try {
-        const { product_name, category_id, glass_category, color, thickness, length, width, dimension_unit, unit, area, product_image } = req.body;
+        const { product_name, category_id, glass_category, color, thickness, product_image } = req.body;
 
-        if (!product_name || (!category_id && !glass_category) || !color || !thickness || length === undefined || width === undefined) {
+        if (!product_name || (!category_id && !glass_category) || !color || !thickness) {
             return res.status(400).json({ success: false, message: "Missing required product fields." });
         }
 
@@ -82,13 +84,12 @@ export const createProduct = async (req, res) => {
 
         if (!resolvedCategoryId) return res.status(400).json({ success: false, message: "Invalid category." });
 
-        const calculatedArea = area !== undefined ? parseFloat(area) : calculateArea(length, width, dimension_unit, unit);
         const productImage = resolveProductImageValue(req, product_image);
 
         const newProduct = await createProductInDB({
             product_name, category_id: resolvedCategoryId, color, thickness,
-            length: parseFloat(length), width: parseFloat(width),
-            dimension_unit: dimension_unit || "mm", area: calculatedArea, unit: unit || "Sq.ft",
+            length: 0, width: 0,
+            dimension_unit: "mm", area: 0, unit: "Sq.ft",
             product_image: productImage
         });
 
@@ -180,26 +181,11 @@ export const updateProduct = async (req, res) => {
             }
         }
 
-        const newLength = updateBody.length !== undefined ? updateBody.length : existingProduct.length;
-        const newWidth = updateBody.width !== undefined ? updateBody.width : existingProduct.width;
-        const newDimUnit = updateBody.dimension_unit !== undefined ? updateBody.dimension_unit : existingProduct.dimension_unit;
-        const newUnit = updateBody.unit !== undefined ? updateBody.unit : existingProduct.unit;
-
-        let calculatedArea = updateBody.area;
-        if (updateBody.area === undefined && (updateBody.length !== undefined || updateBody.width !== undefined || updateBody.dimension_unit !== undefined || updateBody.unit !== undefined)) {
-            calculatedArea = calculateArea(newLength, newWidth, newDimUnit, newUnit);
-        }
-
         const productData = {};
         if (updateBody.product_name !== undefined) productData.product_name = updateBody.product_name;
         if (resolvedCategoryId !== undefined) productData.category_id = resolvedCategoryId;
         if (updateBody.color !== undefined) productData.color = updateBody.color;
         if (updateBody.thickness !== undefined) productData.thickness = updateBody.thickness;
-        if (updateBody.length !== undefined) productData.length = parseFloat(updateBody.length);
-        if (updateBody.width !== undefined) productData.width = parseFloat(updateBody.width);
-        if (updateBody.dimension_unit !== undefined) productData.dimension_unit = updateBody.dimension_unit;
-        if (calculatedArea !== undefined) productData.area = calculatedArea;
-        if (updateBody.unit !== undefined) productData.unit = updateBody.unit;
 
         const productImageValue = resolveProductImageValue(req, updateBody.product_image);
         if (productImageValue !== undefined) {

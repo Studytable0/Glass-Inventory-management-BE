@@ -1,5 +1,5 @@
 import express from "express";
-import { login, updateMasterAdminCredentials, register, createStoreAdmin, getAllStoreAdmins, getStoreAdminById, updateStoreAdmin, reassignStoreAdmin, getStoreAdminProfile, getMasterAdminProfile } from "../controllers/auth.controller.js";
+import { login, updateMasterAdminCredentials, updateStoreAdminCredentials, register, createStoreAdmin, getAllStoreAdmins, getStoreAdminById, updateStoreAdmin, reassignStoreAdmin, getStoreAdminProfile, getMasterAdminProfile } from "../controllers/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -12,6 +12,9 @@ router.post("/login", login);
 
 // Master Admin Update Credentials Route
 router.put("/update-credentials", authenticate, updateMasterAdminCredentials);
+
+// Store Admin Update Credentials Route
+router.put("/store-admin-credentials", authenticate, updateStoreAdminCredentials);
 
 // Create Store Admin Route (protected - only Master Admin can create store admins)
 router.post("/create-store-admin", authenticate, createStoreAdmin);

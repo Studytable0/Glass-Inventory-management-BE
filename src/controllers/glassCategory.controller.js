@@ -150,6 +150,15 @@ export const deleteGlassCategory = async (req, res) => {
         });
     } catch (error) {
         console.error("Delete Glass Category Error:", error);
+
+        // PostgreSQL error code for foreign_key_violation
+        if (error.code === '23503') {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete this category because it is currently assigned to one or more products."
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: "Internal Server Error"

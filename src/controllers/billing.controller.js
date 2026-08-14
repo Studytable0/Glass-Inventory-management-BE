@@ -78,7 +78,7 @@ export const createBill = async (req, res) => {
 // For Store Admins to view ONLY their branch's sales
 export const getBillingHistory = async (req, res) => {
     try {
-        const userRole = req.user?.role;
+        const userRole = req.user?.role                                                                                                                                 ;
         const storeId = req.user?.storeId;
 
         if (!storeId || (userRole.toUpperCase() !== 'STORE_ADMIN' && userRole.toUpperCase() !== 'STOREADMIN')) {
@@ -124,4 +124,7 @@ export const getGlobalBillingHistory = async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
+
+
+
 

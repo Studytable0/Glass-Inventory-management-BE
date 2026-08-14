@@ -1,44 +1,41 @@
 import pool from "../config/db.js";
 
+// Look up user by Email (Include inactive users so duplicate checks work properly)
 export const findUserByEmail = async (email) => {
     const query = `
         SELECT *
         FROM users
         WHERE email = $1
-            AND status = true
         LIMIT 1;
     `;
 
     const { rows } = await pool.query(query, [email]);
-
     return rows[0];
 };
 
+// Look up user by Username (Include inactive users so duplicate checks work properly)
 export const findUserByUsername = async (username) => {
     const query = `
         SELECT *
         FROM users
         WHERE username = $1
-          AND status = true
         LIMIT 1;
     `;
 
     const { rows } = await pool.query(query, [username]);
-
     return rows[0];
 };
 
+// Look up user by ID (Allow finding disabled users so Master Admin can manage/re-enable them)
 export const findUserById = async (id) => {
     const query = `
         SELECT *
         FROM users
         WHERE id = $1
-          AND status = true
         LIMIT 1;
     `;
 
     const { rows } = await pool.query(query, [id]);
-
     return rows[0];
 };
 
@@ -65,13 +62,12 @@ export const updateUserCredentials = async (id, { email, username, password }) =
     values.push(id);
     const query = `
         UPDATE users
-        SET ${updates.join(", ")}
+        SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $${paramIndex}
         RETURNING id, username, email, role, status, store_id;
     `;
 
     const { rows } = await pool.query(query, values);
-
     return rows[0];
 };
 
@@ -83,13 +79,10 @@ export const createUser = async ({ full_name, username, email, password, role })
     `;
 
     const values = [full_name, username, email, password, role];
-
     const { rows } = await pool.query(query, values);
-
     return rows[0];
 };
 
-// Insert a new store admin into the users table
 export const createStoreAdminRecord = async ({ store_id, full_name, username, email, password }) => {
     const query = `
         INSERT INTO users (store_id, full_name, username, email, password, role)
@@ -99,15 +92,14 @@ export const createStoreAdminRecord = async ({ store_id, full_name, username, em
     
     const values = [store_id, full_name, username, email, password];
     const { rows } = await pool.query(query, values);
-    
     return rows[0];
 };
 
 export const updateAdminStoreId = async (userId, newStoreId) => {
     const query = `
         UPDATE users 
-        SET store_id = $1 
-        WHERE id = $2 AND role = 'STORE_ADMIN' 
+        SET store_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2 AND UPPER(role) = 'STORE_ADMIN' 
         RETURNING id, username, store_id;
     `;
     const { rows } = await pool.query(query, [newStoreId, userId]);
@@ -119,14 +111,14 @@ export const getStoreAdminById = async (id) => {
         SELECT id, store_id, full_name, username, email, role, status, created_at, updated_at
         FROM users
         WHERE id = $1
-          AND role = 'STORE_ADMIN'
-          AND status = true
+          AND UPPER(role) = 'STORE_ADMIN'
         LIMIT 1;
     `;
     const { rows } = await pool.query(query, [id]);
     return rows[0] || null;
 };
 
+// Fixed: Removed `AND status = true` from WHERE clause so inactive admins can be updated/re-enabled
 export const updateStoreAdminById = async (id, updateData) => {
     const updates = [];
     const values = [];
@@ -160,8 +152,7 @@ export const updateStoreAdminById = async (id, updateData) => {
         UPDATE users
         SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $${paramIndex}
-          AND role = 'STORE_ADMIN'
-          AND status = true
+          AND UPPER(role) = 'STORE_ADMIN'
         RETURNING id, store_id, full_name, username, email, role, status, created_at, updated_at;
     `;
 
@@ -169,12 +160,12 @@ export const updateStoreAdminById = async (id, updateData) => {
     return rows[0] || null;
 };
 
+// Fixed: Fetch all admins (active + inactive) for the master admin table
 export const getAllStoreAdmins = async (limit = 10, offset = 0) => {
     const query = `
         SELECT id, store_id, full_name, username, email, role, status, created_at
         FROM users
-        WHERE role = 'STORE_ADMIN'
-          AND status = true
+        WHERE UPPER(role) = 'STORE_ADMIN'
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2;
     `;
@@ -182,8 +173,7 @@ export const getAllStoreAdmins = async (limit = 10, offset = 0) => {
     const countQuery = `
         SELECT COUNT(*) AS total
         FROM users
-        WHERE role = 'STORE_ADMIN'
-          AND status = true;
+        WHERE UPPER(role) = 'STORE_ADMIN';
     `;
 
     const { rows } = await pool.query(query, [limit, offset]);
@@ -210,7 +200,7 @@ export const getStoreAdminProfileFromDB = async (userId) => {
             s.status AS store_status
         FROM users u
         LEFT JOIN stores s ON u.store_id = s.store_id
-        WHERE u.id = $1 AND u.role = 'STORE_ADMIN' AND u.status = true
+        WHERE u.id = $1 AND UPPER(u.role) = 'STORE_ADMIN' AND u.status = true
         LIMIT 1;
     `;
     const { rows } = await pool.query(query, [userId]);
@@ -228,7 +218,7 @@ export const getMasterAdminProfileFromDB = async (userId) => {
             status AS user_status, 
             created_at AS user_created_at
         FROM users
-        WHERE id = $1 AND (role = 'MASTER_ADMIN' OR role = 'MASTERADMIN') AND status = true
+        WHERE id = $1 AND UPPER(role) IN ('MASTER_ADMIN', 'MASTERADMIN') AND status = true
         LIMIT 1;
     `;
     const { rows } = await pool.query(query, [userId]);

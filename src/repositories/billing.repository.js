@@ -55,7 +55,6 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
         // 1. Loop through items to validate stock, apply discounts, and calculate totals
         for (const item of items) {
-            // ✅ UPDATED: Joined stores table to get default_max_discount & fetched override_max_discount
             const checkStockQuery = `
                 SELECT 
                     i.available_stock, i.selling_rate, i.override_max_discount,
@@ -74,49 +73,55 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
             const stockData = rows[0];
             
-            // Check if there is enough stock
+            // Check stock availability
             if (stockData.available_stock < item.quantity) {
                 throw new Error(`Insufficient stock for Product ID ${item.product_id}. Only ${stockData.available_stock} left.`);
             }
 
-            // ✅ DISCOUNT LOGIC: Determine Max Allowed Discount
+            // Discount logic check
             const storeLimit = parseFloat(stockData.default_max_discount || 0);
             const overrideLimit = stockData.override_max_discount !== null ? parseFloat(stockData.override_max_discount) : null;
             
-            // Override takes precedence if it exists; otherwise use store default
             const maxAllowedDiscount = overrideLimit !== null ? overrideLimit : storeLimit;
             const appliedDiscount = parseFloat(item.discount_applied || 0);
 
-            // ✅ SECURITY CHECK: Block unauthorized discounts
             if (appliedDiscount > maxAllowedDiscount) {
                 throw new Error(`Discount limit exceeded. Maximum allowed discount for ${stockData.product_name} is ${maxAllowedDiscount}%.`);
             }
 
-            // ✅ MATH CALCULATION: Area * Rate * Qty
+            // Calculations
             const unitPricePerSqFt = parseFloat(stockData.selling_rate);
             
-            const originalLength = item.height !== undefined ? parseFloat(item.height) : parseFloat(stockData.length);
-            const originalWidth = item.width !== undefined ? parseFloat(item.width) : parseFloat(stockData.width);
+            // Extract custom dimensions or fall back to product defaults
+            const originalLength = item.height !== undefined 
+                ? parseFloat(item.height) 
+                : (item.length !== undefined ? parseFloat(item.length) : parseFloat(stockData.length));
+            const originalWidth = item.width !== undefined 
+                ? parseFloat(item.width) 
+                : parseFloat(stockData.width);
+                
             const billingLength = getBillingDimension(originalLength);
             const billingWidth = getBillingDimension(originalWidth);
             
-            const billingArea = item.area !== undefined ? parseFloat(item.area) : calculateArea(billingLength, billingWidth, stockData.dimension_unit, stockData.unit);
+            const billingArea = item.area !== undefined 
+                ? parseFloat(item.area) 
+                : calculateArea(billingLength, billingWidth, stockData.dimension_unit, stockData.unit);
             
             let baseTotalPrice = unitPricePerSqFt * billingArea * item.quantity;
             let discountAmount = baseTotalPrice * (appliedDiscount / 100);
             let finalItemPrice = baseTotalPrice - discountAmount;
 
-            // If frontend sends charged_rate, it acts as the exact final total price for this item
+            let chargedRateToSave = null;
             if (item.charged_rate !== undefined) {
                 finalItemPrice = parseFloat(item.charged_rate);
-                baseTotalPrice = finalItemPrice; // Assuming discount is already factored in by frontend
+                baseTotalPrice = finalItemPrice;
                 discountAmount = 0;
+                chargedRateToSave = finalItemPrice;
             }
 
             subTotal += baseTotalPrice;
             grandTotal += finalItemPrice;
 
-            // Added discount_percent to the processed items
             processedItems.push({
                 productId: item.product_id,
                 productName: stockData.product_name,
@@ -125,13 +130,14 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
                 width: originalWidth,
                 billingLength: billingLength,
                 billingWidth: billingWidth,
-                chargedDimension: item.charged_dimension,
+                chargedDimension: item.charged_dimension !== undefined ? parseFloat(item.charged_dimension) : null,
                 color: stockData.color,
                 area: billingArea,
                 unit: stockData.unit,
                 quantity: item.quantity,
                 unitPrice: unitPricePerSqFt,
                 discountPercent: appliedDiscount,
+                chargedRate: chargedRateToSave,
                 totalPrice: finalItemPrice
             });
         }
@@ -149,13 +155,25 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
 
         // 3. Insert invoice items and deduct inventory
         for (const pItem of processedItems) {
-            // ✅ UPDATED: Added discount_percent to the insert query
             const itemQuery = `
-                INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_price, discount_percent, total_price)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO invoice_items (
+                    invoice_id, product_id, quantity, unit_price, discount_percent, total_price,
+                    length, width, charged_dimension, area, charged_rate
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             `;
             await client.query(itemQuery, [
-                invoice.invoice_id, pItem.productId, pItem.quantity, pItem.unitPrice, pItem.discountPercent, pItem.totalPrice
+                invoice.invoice_id, 
+                pItem.productId, 
+                pItem.quantity, 
+                pItem.unitPrice, 
+                pItem.discountPercent, 
+                pItem.totalPrice,
+                pItem.length,
+                pItem.width,
+                pItem.chargedDimension,
+                pItem.area,
+                pItem.chargedRate
             ]);
 
             const updateStockQuery = `
@@ -166,7 +184,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
             await client.query(updateStockQuery, [pItem.quantity, storeId, pItem.productId]);
         }
 
-        await client.query('COMMIT'); // ✅ Save all changes
+        await client.query('COMMIT'); // ✅ Save transaction
         
         const formattedInvoice = {
             invoice_id: invoice.invoice_id,
@@ -192,7 +210,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
         return { invoice: formattedInvoice, items: formattedItems };
 
     } catch (error) {
-        await client.query('ROLLBACK'); // ❌ Undo everything if an error occurs
+        await client.query('ROLLBACK'); // ❌ Rollback transaction on failure
         throw error;
     } finally {
         client.release();
@@ -213,14 +231,16 @@ export const getInvoicesByStore = async (storeId) => {
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
                     'thickness', p.thickness,
-                    'length', p.length,
-                    'width', p.width,
+                    'length', COALESCE(ii.length, p.length),
+                    'width', COALESCE(ii.width, p.width),
+                    'charged_dimension', ii.charged_dimension,
                     'color', p.color,
-                    'area', p.area,
+                    'area', COALESCE(ii.area, p.area),
                     'unit', p.unit,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
                     'discount_percent', ii.discount_percent,
+                    'charged_rate', ii.charged_rate,
                     'total_price', ii.total_price
                 )
             ) AS items
@@ -251,14 +271,16 @@ export const getAllInvoicesGlobal = async () => {
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
                     'thickness', p.thickness,
-                    'length', p.length,
-                    'width', p.width,
+                    'length', COALESCE(ii.length, p.length),
+                    'width', COALESCE(ii.width, p.width),
+                    'charged_dimension', ii.charged_dimension,
                     'color', p.color,
-                    'area', p.area,
+                    'area', COALESCE(ii.area, p.area),
                     'unit', p.unit,
                     'quantity', ii.quantity,
                     'unit_price', ii.unit_price,
                     'discount_percent', ii.discount_percent,
+                    'charged_rate', ii.charged_rate,
                     'total_price', ii.total_price
                 )
             ) AS items

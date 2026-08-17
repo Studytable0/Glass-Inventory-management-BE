@@ -10,7 +10,7 @@ export const createBill = async (req, res) => {
         const storeId = req.user?.storeId;
         const userId = req.user?.id;
 
-        // Block anyone who isn't an assigned Store Admin
+        // Block non-Store Admin users
         if (!storeId || (userRole.toUpperCase() !== 'STORE_ADMIN' && userRole.toUpperCase() !== 'STOREADMIN')) {
             return res.status(403).json({ success: false, message: "Only Store Admins can generate bills." });
         }
@@ -24,7 +24,7 @@ export const createBill = async (req, res) => {
 
         for (let item of items) {
             if (!item.product_id || !item.quantity || item.quantity <= 0) {
-                 return res.status(400).json({ success: false, message: "Each item must have a valid product_id and a quantity greater than 0." });
+                return res.status(400).json({ success: false, message: "Each item must have a valid product_id and a quantity greater than 0." });
             }
             
             if (item.width !== undefined && (isNaN(item.width) || item.width <= 0)) {
@@ -66,8 +66,7 @@ export const createBill = async (req, res) => {
     } catch (error) {
         console.error("Billing Error:", error);
         
-        // Return friendly stock/not found errors directly to frontend
-        if (error.message.includes('Insufficient stock') || error.message.includes('not found')) {
+        if (error.message.includes('Insufficient stock') || error.message.includes('not found') || error.message.includes('Discount limit exceeded')) {
             return res.status(400).json({ success: false, message: error.message });
         }
         
@@ -75,7 +74,7 @@ export const createBill = async (req, res) => {
     }
 };
 
-// For Store Admins to view ONLY their branch's sales
+// For Store Admins to view ONLY their branch's sales history
 export const getBillingHistory = async (req, res) => {
     try {
         const userRole = req.user?.role;
@@ -138,7 +137,3 @@ export const getGlobalBillingHistory = async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
-
-
-
-

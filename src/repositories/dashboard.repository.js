@@ -151,3 +151,28 @@ export const getStoreDashboardMetrics = async (storeId) => {
         throw error;
     }
 };
+// ==========================================
+// MASTER ADMIN: ALL STORES REVENUE DETAILS
+// ==========================================
+export const getStoreWiseRevenue = async () => {
+    try {
+        const query = `
+            SELECT 
+                s.store_id,
+                s.store_name,
+                COALESCE(SUM(i.grand_total), 0) AS total_revenue,
+                COALESCE(SUM(CASE WHEN date_trunc('month', i.created_at) = date_trunc('month', CURRENT_DATE) THEN i.grand_total ELSE 0 END), 0) AS current_month_revenue,
+                COALESCE(SUM(CASE WHEN DATE(i.created_at) = CURRENT_DATE THEN i.grand_total ELSE 0 END), 0) AS today_revenue
+            FROM stores s
+            LEFT JOIN invoices i ON s.store_id = i.store_id
+            WHERE s.status = true
+            GROUP BY s.store_id, s.store_name
+            ORDER BY total_revenue DESC;
+        `;
+
+        const result = await pool.query(query);
+        return result.rows;
+    } catch (error) {
+        throw error;
+    }
+};

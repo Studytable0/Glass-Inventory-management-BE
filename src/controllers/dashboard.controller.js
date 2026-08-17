@@ -109,3 +109,44 @@ export const getStoreDashboard = async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal Server Error while loading store dashboard" });
     }
 };
+import { getStoreWiseRevenue } from '../repositories/dashboard.repository.js'; // Ensure this is imported!
+
+// ==========================================
+// MASTER ADMIN: DETAILED STORE REVENUES
+// ==========================================
+export const getStoreWiseRevenueData = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+
+        // Security Check: Block Store Admins
+        if (!userRole || (userRole.toUpperCase() !== 'MASTER_ADMIN' && userRole.toUpperCase() !== 'MASTERADMIN')) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Unauthorized. Access is restricted to Master Admins." 
+            });
+        }
+
+        const rawData = await getStoreWiseRevenue();
+
+        // Format SQL strings to JS Numbers
+        const formattedData = rawData.map(store => ({
+            store_id: store.store_id,
+            store_name: store.store_name,
+            total_revenue: parseFloat(store.total_revenue),
+            current_month_revenue: parseFloat(store.current_month_revenue),
+            today_revenue: parseFloat(store.today_revenue)
+        }));
+
+        return res.status(200).json({
+            success: true,
+            data: formattedData
+        });
+
+    } catch (error) {
+        console.error("Store Wise Revenue Error:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Internal Server Error while loading store revenues" 
+        });
+    }
+};

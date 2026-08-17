@@ -217,7 +217,13 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
     }
 };
 
-export const getInvoicesByStore = async (storeId) => {
+export const getInvoicesByStore = async (storeId, page = 1, limit = 10) => {
+    const offset = (page - 1) * limit;
+
+    const countQuery = `SELECT COUNT(*) FROM invoices WHERE store_id = $1`;
+    const countResult = await pool.query(countQuery, [storeId]);
+    const totalRecords = parseInt(countResult.rows[0].count, 10);
+
     const query = `
         SELECT 
             i.invoice_id, 
@@ -249,14 +255,26 @@ export const getInvoicesByStore = async (storeId) => {
         JOIN products p ON ii.product_id = p.id
         WHERE i.store_id = $1
         GROUP BY i.invoice_id
-        ORDER BY i.created_at DESC;
+        ORDER BY i.created_at DESC
+        LIMIT $2 OFFSET $3;
     `;
     
-    const { rows } = await pool.query(query, [storeId]);
-    return rows;
+    const { rows } = await pool.query(query, [storeId, limit, offset]);
+    return {
+        data: rows,
+        totalRecords,
+        currentPage: parseInt(page, 10),
+        totalPages: Math.ceil(totalRecords / limit)
+    };
 };
 
-export const getAllInvoicesGlobal = async () => {
+export const getAllInvoicesGlobal = async (page = 1, limit = 10) => {
+    const offset = (page - 1) * limit;
+
+    const countQuery = `SELECT COUNT(*) FROM invoices`;
+    const countResult = await pool.query(countQuery);
+    const totalRecords = parseInt(countResult.rows[0].count, 10);
+
     const query = `
         SELECT 
             i.invoice_id, 
@@ -288,9 +306,15 @@ export const getAllInvoicesGlobal = async () => {
         JOIN invoice_items ii ON i.invoice_id = ii.invoice_id
         JOIN products p ON ii.product_id = p.id
         GROUP BY i.invoice_id, i.store_id
-        ORDER BY i.created_at DESC;
+        ORDER BY i.created_at DESC
+        LIMIT $1 OFFSET $2;
     `;
     
-    const { rows } = await pool.query(query);
-    return rows;
+    const { rows } = await pool.query(query, [limit, offset]);
+    return {
+        data: rows,
+        totalRecords,
+        currentPage: parseInt(page, 10),
+        totalPages: Math.ceil(totalRecords / limit)
+    };
 };

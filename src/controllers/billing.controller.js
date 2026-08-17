@@ -78,19 +78,26 @@ export const createBill = async (req, res) => {
 // For Store Admins to view ONLY their branch's sales
 export const getBillingHistory = async (req, res) => {
     try {
-        const userRole = req.user?.role                                                                                                                                 ;
+        const userRole = req.user?.role;
         const storeId = req.user?.storeId;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
 
         if (!storeId || (userRole.toUpperCase() !== 'STORE_ADMIN' && userRole.toUpperCase() !== 'STOREADMIN')) {
             return res.status(403).json({ success: false, message: "Only Store Admins can view their billing history." });
         }
 
-        const invoices = await getInvoicesByStore(storeId);
+        const result = await getInvoicesByStore(storeId, page, limit);
 
         return res.status(200).json({
             success: true,
-            count: invoices.length,
-            data: invoices
+            count: result.data.length,
+            data: result.data,
+            pagination: {
+                totalRecords: result.totalRecords,
+                currentPage: result.currentPage,
+                totalPages: result.totalPages
+            }
         });
 
     } catch (error) {
@@ -103,6 +110,8 @@ export const getBillingHistory = async (req, res) => {
 export const getGlobalBillingHistory = async (req, res) => {
     try {
         const userRole = req.user?.role;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
 
         if (userRole.toUpperCase() !== 'MASTER_ADMIN' && userRole.toUpperCase() !== 'MASTERADMIN') {
             return res.status(403).json({ 
@@ -111,12 +120,17 @@ export const getGlobalBillingHistory = async (req, res) => {
             });
         }
 
-        const invoices = await getAllInvoicesGlobal();
+        const result = await getAllInvoicesGlobal(page, limit);
 
         return res.status(200).json({
             success: true,
-            count: invoices.length,
-            data: invoices
+            count: result.data.length,
+            data: result.data,
+            pagination: {
+                totalRecords: result.totalRecords,
+                currentPage: result.currentPage,
+                totalPages: result.totalPages
+            }
         });
 
     } catch (error) {

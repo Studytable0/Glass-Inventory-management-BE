@@ -15,7 +15,10 @@ import { initGlassCategoryTable } from "./repositories/glassCategory.repository.
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: "http://glass.ddlearning.in",
+    credentials: true
+}));
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());

@@ -43,9 +43,9 @@ export const createBill = async (req, res) => {
                 return res.status(400).json({ success: false, message: "Item area must be a valid positive number." });
             }
             
-            if (item.charged_dimension !== undefined && (isNaN(item.charged_dimension) || item.charged_dimension <= 0)) {
-                return res.status(400).json({ success: false, message: "Item charged_dimension must be a valid positive number." });
-            }
+            if (item.charged_dimension !== undefined && typeof item.charged_dimension !== 'string' && typeof item.charged_dimension !== 'number') {
+    return res.status(400).json({ success: false, message: "Item charged_dimension must be a string (e.g., '24*24') or a number." });
+}
         }
 
         // Execute Transaction

@@ -58,7 +58,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
             const checkStockQuery = `
                 SELECT 
                     i.available_stock, i.selling_rate, i.override_max_discount,
-                    p.product_name, p.thickness, p.length, p.width, p.color, p.area, p.unit, p.dimension_unit,
+                    p.product_name, p.category_id, p.thickness, p.length, p.width, p.color, p.area, p.unit, p.dimension_unit,
                     s.default_max_discount
                 FROM inventory i
                 JOIN products p ON i.product_id = p.id
@@ -125,12 +125,13 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
             processedItems.push({
                 productId: item.product_id,
                 productName: stockData.product_name,
+                category: stockData.category_id !== null ? stockData.category_id : 'N/A',
                 thickness: stockData.thickness,
                 length: originalLength,
                 width: originalWidth,
                 billingLength: billingLength,
                 billingWidth: billingWidth,
-                chargedDimension: item.charged_dimension !== undefined ? parseFloat(item.charged_dimension) : null,
+                chargedDimension: item.charged_dimension !== undefined ? String(item.charged_dimension) : null, // ✅ NEW LINE
                 color: stockData.color,
                 area: billingArea,
                 unit: stockData.unit,
@@ -196,6 +197,7 @@ export const createInvoiceTx = async ({ storeId, userId, customerName, customerP
         const formattedItems = processedItems.map(item => ({
             productId: item.productId,
             productName: item.productName,
+            category: item.category,
             thickness: item.thickness,
             length: item.length,
             width: item.width,
@@ -236,6 +238,7 @@ export const getInvoicesByStore = async (storeId, page = 1, limit = 10) => {
                 JSON_BUILD_OBJECT(
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
+                    'category', COALESCE(p.category_id::text, 'N/A'),
                     'thickness', p.thickness,
                     'length', COALESCE(ii.length, p.length),
                     'width', COALESCE(ii.width, p.width),
@@ -288,6 +291,7 @@ export const getAllInvoicesGlobal = async (page = 1, limit = 10) => {
                 JSON_BUILD_OBJECT(
                     'product_id', ii.product_id,
                     'product_name', p.product_name,
+                    'category', COALESCE(p.category_id::text, 'N/A'),
                     'thickness', p.thickness,
                     'length', COALESCE(ii.length, p.length),
                     'width', COALESCE(ii.width, p.width),

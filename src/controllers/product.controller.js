@@ -6,7 +6,8 @@ import {
     getAllProductsFromDB,
     assignProductToStoreInDB,
     removeProductFromStoreInDB,
-    getAllProductsByStoreIdFromDB
+    getAllProductsByStoreIdFromDB,
+    updateStoreInventoryInDB
 } from "../repositories/product.repository.js";
 import {
     getGlassCategoryByIdFromDB,
@@ -151,6 +152,94 @@ export const createProductStoreAdmin = async (req, res) => {
         return res.status(201).json({ success: true, message: "Product created and automatically assigned to store", product: productWithInventory });
     } catch (error) {
         console.error("Create Product Store Admin Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const updateProductStoreAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateBody = { ...req.body };
+        const userStoreId = req.user?.store_id || req.user?.storeId;
+
+        if (!userStoreId) {
+            return res.status(400).json({ success: false, message: "Store ID is required." });
+        }
+
+        const existingProduct = await getProductByIdFromDB(id);
+        if (!existingProduct) {
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
+
+        // Verify that the product is actually assigned to this store before letting them edit it
+        const isProductInStore = existingProduct.store_inventory?.some(inv => inv.store_id === userStoreId);
+        if (!isProductInStore) {
+             return res.status(403).json({ success: false, message: "Access forbidden: Product not found in your store inventory" });
+        }
+
+        let resolvedCategoryId = updateBody.category_id !== undefined ? parseInt(updateBody.category_id, 10) : existingProduct.category_id;
+
+        if (updateBody.category_id !== undefined || updateBody.glass_category !== undefined) {
+            let validCategory = null;
+            if (updateBody.category_id) {
+                validCategory = await getGlassCategoryByIdFromDB(updateBody.category_id);
+            } else if (updateBody.glass_category) {
+                validCategory = await getGlassCategoryByNameFromDB(updateBody.glass_category);
+                if (validCategory) resolvedCategoryId = validCategory.id;
+            }
+
+            if (!validCategory) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid category. No category found matching '${updateBody.category_id || updateBody.glass_category}' in glass_categories table.`
+                });
+            }
+        }
+
+        const productData = {};
+        if (updateBody.product_name !== undefined) productData.product_name = updateBody.product_name;
+        if (resolvedCategoryId !== undefined) productData.category_id = resolvedCategoryId;
+        if (updateBody.color !== undefined) productData.color = updateBody.color;
+        if (updateBody.thickness !== undefined) productData.thickness = updateBody.thickness;
+
+        const productImageValue = resolveProductImageValue(req, updateBody.product_image);
+        if (productImageValue !== undefined) {
+            productData.product_image = productImageValue;
+        }
+
+        if (Object.keys(productData).length > 0) {
+            await updateProductInDB(id, productData);
+        }
+
+        const inventoryData = {};
+        if (updateBody.purchase_rate !== undefined) inventoryData.purchase_rate = parseFloat(updateBody.purchase_rate);
+        if (updateBody.selling_rate !== undefined) inventoryData.selling_rate = parseFloat(updateBody.selling_rate);
+        if (updateBody.quantity !== undefined) inventoryData.available_stock = parseInt(updateBody.quantity, 10);
+        if (updateBody.minimum_stock !== undefined) inventoryData.minimum_stock = parseInt(updateBody.minimum_stock, 10);
+
+        if (Object.keys(inventoryData).length > 0) {
+            await updateStoreInventoryInDB(userStoreId, id, inventoryData);
+        }
+
+        const finalProduct = await getProductByIdFromDB(id);
+        const storeInventory = finalProduct.store_inventory?.find(inv => inv.store_id === userStoreId) || {};
+
+        const productWithInventory = {
+            ...finalProduct,
+            purchase_rate: parseFloat(storeInventory.purchase_rate || 0),
+            selling_rate: parseFloat(storeInventory.selling_rate || 0),
+            quantity: storeInventory.available_stock || 0,
+            minimum_stock: storeInventory.minimum_stock || 0
+        };
+        delete productWithInventory.store_inventory;
+
+        return res.status(200).json({
+            success: true,
+            message: "Product updated successfully",
+            product: productWithInventory
+        });
+    } catch (error) {
+        console.error("Update Product Store Admin Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };

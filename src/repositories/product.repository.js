@@ -82,6 +82,35 @@ export const assignProductToStoreInDB = async (store_id, product_id, inventoryDa
     return rows[0];
 };
 
+export const updateStoreInventoryInDB = async (store_id, product_id, inventoryData) => {
+    const inventoryUpdates = [];
+    const inventoryValues = [];
+    let pParamIndex = 1;
+
+    const fields = ["purchase_rate", "selling_rate", "available_stock", "minimum_stock"];
+    fields.forEach((field) => {
+        if (inventoryData[field] !== undefined) {
+            inventoryUpdates.push(`${field} = $${pParamIndex++}`);
+            inventoryValues.push(inventoryData[field]);
+        }
+    });
+
+    if (inventoryUpdates.length > 0) {
+        inventoryUpdates.push(`updated_at = CURRENT_TIMESTAMP`);
+        inventoryValues.push(store_id);
+        inventoryValues.push(product_id);
+        const query = `
+            UPDATE inventory
+            SET ${inventoryUpdates.join(", ")}
+            WHERE store_id = $${pParamIndex} AND product_id = $${pParamIndex + 1}
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(query, inventoryValues);
+        return rows[0];
+    }
+    return null;
+};
+
 export const removeProductFromStoreInDB = async (store_id, product_id) => {
     const query = `
         DELETE FROM inventory

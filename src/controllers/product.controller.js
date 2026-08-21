@@ -93,9 +93,64 @@ export const createProduct = async (req, res) => {
             product_image: productImage
         });
 
+        // Removed storeAdmin automatic assignment from this API
+
+
         return res.status(201).json({ success: true, message: "Product master created successfully", product: newProduct });
     } catch (error) {
         console.error("Create Product Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+
+export const createProductStoreAdmin = async (req, res) => {
+    try {
+        const { product_name, category_id, glass_category, color, thickness, product_image, purchase_rate, selling_rate, quantity, minimum_stock } = req.body;
+
+        if (!product_name || (!category_id && !glass_category) || !color || !thickness) {
+            return res.status(400).json({ success: false, message: "Missing required product fields." });
+        }
+
+        let resolvedCategoryId = category_id ? parseInt(category_id, 10) : null;
+        if (!resolvedCategoryId && glass_category) {
+            const validCategory = await getGlassCategoryByNameFromDB(glass_category);
+            if (validCategory) resolvedCategoryId = validCategory.id;
+        }
+
+        if (!resolvedCategoryId) return res.status(400).json({ success: false, message: "Invalid category." });
+
+        const userStoreId = req.user?.store_id || req.user?.storeId;
+        if (!userStoreId) {
+            return res.status(400).json({ success: false, message: "Store ID is required for store admin product creation." });
+        }
+
+        const productImage = resolveProductImageValue(req, product_image);
+
+        const newProduct = await createProductInDB({
+            product_name, category_id: resolvedCategoryId, color, thickness,
+            length: 0, width: 0,
+            dimension_unit: "mm", area: 0, unit: "Sq.ft",
+            product_image: productImage
+        });
+
+        const inventoryData = await assignProductToStoreInDB(userStoreId, newProduct.id, {
+            purchase_rate: parseFloat(purchase_rate) || 0,
+            selling_rate: parseFloat(selling_rate) || 0,
+            available_stock: parseInt(quantity || req.body.available_stock, 10) || 0,
+            minimum_stock: parseInt(minimum_stock, 10) || 0
+        });
+
+        const productWithInventory = {
+            ...newProduct,
+            purchase_rate: parseFloat(inventoryData.purchase_rate),
+            selling_rate: parseFloat(inventoryData.selling_rate),
+            quantity: inventoryData.available_stock,
+            minimum_stock: inventoryData.minimum_stock
+        };
+
+        return res.status(201).json({ success: true, message: "Product created and automatically assigned to store", product: productWithInventory });
+    } catch (error) {
+        console.error("Create Product Store Admin Error:", error);
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };

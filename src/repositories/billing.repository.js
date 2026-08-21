@@ -317,4 +317,4 @@ export const getAllInvoicesGlobal = async (page = 1, limit = 10) => {
         currentPage: parseInt(page, 10),
         totalPages: Math.ceil(totalRecords / limit)
     };
-};
+}; 

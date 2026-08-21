@@ -15,8 +15,21 @@ import { initGlassCategoryTable } from "./repositories/glassCategory.repository.
 
 const app = express();
 
+const allowedOrigins = [
+    "http://192.168.1.17:5173",
+    "http://localhost:5173",
+    "http://glass.ddlearning.in",
+    "https://glass.ddlearning.in"
+];
+
 app.use(cors({
-    origin: "http://glass.ddlearning.in",
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS blocked: ${origin}`));
+        }
+    },
     credentials: true
 }));
 app.use(helmet());
